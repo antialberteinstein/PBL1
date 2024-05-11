@@ -32,12 +32,11 @@
 
 #define ERR_NE_ROW "Qua it dong"
 #define ERR_R_ROW "Qua nhieu dong"
-#define ERR_NE_COL(i) "Qua it du lieu tren dong" #(i + 1)
-#define ERR_R_COL(i) "Qua nhieu du lieu tren dong" #(i + 1)
+#define ERR_NE_COL(i) "Qua it du lieu tren dong " #i
+#define ERR_R_COL(i) "Qua nhieu du lieu tren dong " #i
 #define ERR_DATA_INVALID "Du lieu khong hop le"
-#define ERR_FILE_NOT_FOUND(file) "File " (file) " khong ton tai"
-#define SHOW_ERROR(file, log) {																\
-	if (file != NULL && file != stdin && file != stdout && file != stderr)	fclose(file)	\
+#define ERR_FILE_NOT_FOUND(file) "File " #file " khong ton tai"
+#define SHOW_ERROR(log) {																	\
 	printf("%s.\n", log);																	\
 	enter_to_continue();		return false;												\
 }
@@ -48,6 +47,11 @@
 #define NHAP_SO_COT "Nhap so cot: "
 #define NHAP_MA_TRAN "Nhap ma tran: "
 #define NHAP_FILE_PATH "Nhap duong dan file: "
+
+#define AN_SWAP_ROW(i1, i2) "Doi dong " #i1 " va " #i2 "."
+#define AN_CHANGE(i1, k, i2) "Lay dong " #i1 " tru di " #k " lan dong " #i2 "."
+#define AN_INF_SOLUTION "He phuong trinh co vo so nghiem."
+#define AN_NO_SOLUTION "He phuong trinh vo nghiem."
 
 typedef char *string;
 typedef float Matrix[MAX][MAX];
@@ -60,7 +64,8 @@ typedef void (*func);
 // ========================================== //
 //              KHAI BAO TOAN CUC             //
 // ========================================== //
-Menu menu_input, menu_main, menu_kcd;
+struct Menu;
+struct Menu menu_input, menu_main, menu_kcd;
 FILE* log_file;
 Matrix mat, mat_bk;
 int *n, *m, *n_bk, *m_bk;
@@ -134,22 +139,23 @@ void show_menu(Menu menu) {
 bool scan_matrix(Matrix mat, int *n, int *m, FILE *file, FILE *log_file) {
   	char dummy;
   	fprintf(log_file, "%s", NHAP_SO_DONG);		fscanf(file, "%d%c", n, &dummy);
-  	if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID, false, 0);
-  	
+  	if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID);
+
   	fprintf(log_file, "%s", NHAP_SO_COT);		fscanf(file, "%d%c", m, &dummy);
-  	if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID, false, 0);
+  	if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID);
 
   	int row_count = 0;
   	fprintf(log_file, "%s\n", NHAP_MA_TRAN);
   	for (int i = 0; i < *n; ++i)
   		for (int j = 0;j < *m; ++j) {
     		fscanf(file, "%f%c", &mat[i][j], &dummy);
-    		if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID, false, 0);
+    		if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID);
     		if (dummy == '\n')	++row_count;
   		}
-  	if (row_count < *n)		SHOW_ERROR(file, ERR_DATA_INVALID);
-  	if (row_count > *n)		SHOW_ERROR(file, ERR_DATA_INVALID);
+  	if (row_count < *n)		SHOW_ERROR(ERR_NE_ROW);
+  	if (row_count > *n)		SHOW_ERROR(ERR_R_ROW);
 
+	// Kiem tra thieu hay thua dong, cot.
   	char buf[MAX], num[MAX];
   	bool in_space = false;
   	int size, count = 0;
@@ -162,11 +168,10 @@ bool scan_matrix(Matrix mat, int *n, int *m, FILE *file, FILE *log_file) {
         		in_space = false;
         		++count;
       		}
-      		if (buf[k] == ' ' && !in_space)
-        	in_space = true;
+      		if (buf[k] == ' ' && !in_space)		in_space = true;
     	}
-    	if (count < *m) 	SHOW_ERROR(file, ERR_NE_ROW(i));
-    	if (count > *m) 	SHOW_ERROR(file, ERR_NE_ROW(i));
+    	if (count < *m) 	SHOW_ERROR(ERR_NE_COL(i + 1));
+    	if (count > *m) 	SHOW_ERROR(ERR_R_COL(i + 1));
     }
     return true;
 }
@@ -180,7 +185,7 @@ bool load_matrix(string path, bool read_path_stdin, Matrix mat, int *n, int *m) 
 	}
 
   	FILE *file = fopen(path, "r");
-  	if (file == NULL) 		SHOW_ERROR(file, ERR_FILE_NOT_FOUND(path));
+  	if (file == NULL) 		SHOW_ERROR(ERR_FILE_NOT_FOUND(path));
   	bool foo = scan_matrix(mat, n, m, file, log_file);
   	fclose(file);
   	return foo;
@@ -221,7 +226,7 @@ bool bien_doi_ma_tran(Matrix mat, int i0, int j0, int n, int m, bool show_step) 
         // Tim vi tri dau tien khac 0.
         k = i0 + 1;
         while (k < n && mat[k][j0] == 0)	++k;
-        if (k >= n)     return (i0 == m);
+        if (k >= n)     return bien_doi_ma_tran(mat, i0, j0 + 1, n, m, show_step);
         swap_row(mat, m, i0, k);
     
         // printf(TB_DOI_DONG(i0, k));
@@ -250,11 +255,9 @@ bool bien_doi_ma_tran(Matrix mat, int i0, int j0, int n, int m, bool show_step) 
 
 int rank(Matrix mat, int n, int m, bool show_step) {
     int i, j = 0, r;
-    for (i = n - 1; i < n; ++i) {
-        j = 0;
-        while (mat[i][j] == 0 && j < m)    ++j;
-        if (j < m)  r = ((j > n) ? n : j);
-    } 
+    for (i = 0; i < n; ++i)
+		while (j < m && mat[i][j] == 0)  ++j;
+	r = m - j + 1;
     if (show_step) 
         printf("%s %d.\n", RANK_LABEL, r);
     return r; 
@@ -297,10 +300,10 @@ void cal_gauss() {
 }
 
 int main() {
-	FILE* file = fopen(LOG_PATH, "w");
+	log_file = fopen(LOG_PATH, "w");
 
-  printf("%s\n", ERR_R_COL(5));
-
-	fclose(file);
+	load_matrix(INPUT_PATH, false, mat, n, m);
+	bien_doi_ma_tran(mat, 0, 0, *n, *m, true);
+	fclose(log_file);
 	return 0;
 }
