@@ -144,16 +144,11 @@ bool scan_matrix(Matrix mat, int *n, int *m, FILE *file, FILE *log_file) {
   	fprintf(log_file, "%s", NHAP_SO_COT);		fscanf(file, "%d%c", m, &dummy);
   	if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID);
 
-  	int row_count = 0;
   	fprintf(log_file, "%s\n", NHAP_MA_TRAN);
   	for (int i = 0; i < *n; ++i)
   		for (int j = 0;j < *m; ++j) {
     		fscanf(file, "%f%c", &mat[i][j], &dummy);
-    		if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID);
-    		if (dummy == '\n')	++row_count;
   		}
-  	if (row_count < *n)		SHOW_ERROR(ERR_NE_ROW);
-  	if (row_count > *n)		SHOW_ERROR(ERR_R_ROW);
 
 	// Kiem tra thieu hay thua dong, cot.
   	char buf[MAX], num[MAX];
