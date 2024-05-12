@@ -38,8 +38,8 @@
 #define ERR_R_COL(i) printf("Qua nhieu du lieu tren dong %d.\n", i + 1)
 #define ERR_DATA_INVALID printf("Du lieu khong hop le.\n");
 #define ERR_FILE_NOT_FOUND(file) printf("File %s khong ton tai.\n", file)
-#define SHOW_ERROR(log_func) {													\
-	log_func;	enter_to_continue();		return false;						\
+#define SHOW_ERROR(log_func) {												\
+	log_func;		return false;											\
 }
 
 #define RANK_LABEL "Hang cua ma tran la: "
@@ -173,6 +173,7 @@ bool scan_matrix(Matrix mat, int *n, int *m, FILE* file, FILE* log_file) {
   	for (int i = 0; i < *n; ++i)
   		for (int j = 0;j < *m; ++j) {
     		fscanf(file, "%f%c", &mat[i][j], &dummy);
+			if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID);
   		}
     return true;
 }
@@ -180,7 +181,7 @@ bool scan_matrix(Matrix mat, int *n, int *m, FILE* file, FILE* log_file) {
 // Nhap ma tran tu file.
 bool load_matrix(string path, bool read_path_stdin, Matrix mat, int *n, int *m) {
 	if (read_path_stdin) {
-		  printf("%s", FILE_PATH_INP_LABEL);
+		printf("%s", FILE_PATH_INP_LABEL);
   		fgets(path, MAX, stdin);
   		path[strlen(path) - 1] = '\0';
 	}
@@ -353,16 +354,20 @@ void bien_doi_Gauss(Matrix mat, int n, int m, string output_path) {
 // ========================================== //
 
 void input_stdin() {
-	// Neu du lieu sai va duoc cap phep thi se chay cua so nhap ma tran.
-	if (!scan_matrix(mat, &n, &m, stdin, stdout) && allow_input_loop)
-		input_window();
+	Matrix mat_i;
+	int n_i, m_i;
+	if (scan_matrix(mat_i, &n_i, &m_i, stdin, stdout))
+		cpy_mat(mat, &n, &m, mat_i, n_i, m_i);
+	else if (allow_input_loop)	input_window();
 }
 
 void input_file() {
-	string path;
-	// Neu du lieu sai va duoc cap phep thi se chay cua so nhap ma tran.
-	if (!load_matrix(path, true, mat, &n, &m) && allow_input_loop)
-		input_window();
+	char path[MAX];
+	Matrix mat_i;
+	int n_i, m_i;
+	if (load_matrix(path, true, mat_i, &n_i, &m_i))
+		cpy_mat(mat, &n, &m, mat_i, n_i, m_i);
+	else if (allow_input_loop)	input_window();
 }
 
 void cal_cd() {  // Cong don.
@@ -418,12 +423,12 @@ int main() {
 	push(mo_leave, menu_input);
 
 	menu_main = create_menu();
-	push(mo_input_stdin, menu_main);	push(mo_input_stdin, menu_main);
+	push(mo_input_stdin, menu_main);	push(mo_input_file, menu_main);
 	push(mo_cd, menu_main);	push(mo_dc, menu_main);	push(mo_gauss, menu_main);
 	push(mo_bd, menu_main);	push(mo_rank, menu_main);	push(mo_leave, menu_main);
 
 	menu_kcd = create_menu();
-	push(mo_input_stdin, menu_kcd);	push(mo_input_stdin, menu_kcd);
+	push(mo_input_stdin, menu_kcd);	push(mo_input_file, menu_kcd);
 	push(mo_gauss, menu_kcd);	push(mo_bd, menu_kcd);	push(mo_rank, menu_kcd);
 	push(mo_leave, menu_kcd);
 
