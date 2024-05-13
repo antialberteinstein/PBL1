@@ -10,14 +10,23 @@
 #define CLEAR_SCREEN system("clear")
 #endif
 
+#define MK_IMPORTANT_DIR {										\
+	printf("Tao cac thu muc can thiet...\n");					\
+	if (system("cd INPUT && cd .."))	system("mkdir INPUT");	\
+	if (system("cd OUTPUT && cd .."))	system("mkdir OUTPUT");	\
+	if (system("cd log && cd .."))		system("mkdir log");	\
+	CLEAR_SCREEN;												\
+}
+
 #define MAX 100
 #define LOADING_DATA_MSG "Dang load du lieu tu file DATA.INP"
 #define DATA_FORMAT_CHAR "%7c"
 #define DATA_FORMAT "%7.2f"
 #define SHOW_SOLUTION(file, nghiem, i)	fprintf(file, "x%d = %-7.2g", i + 1, nghiem)
-#define LOG_PATH "log.txt"
+#define INPUT_DIR "INPUT/"
+#define LOG_PATH "log/log.txt"
 #define INPUT_PATH "DATA.INP"
-#define OUTPUT_PATH "DATA.OUT"
+#define OUTPUT_PATH "OUTPUT/DATA.OUT"
 #define OUTPUT_LABEL "=== TIM NGHIEM HE PHUONG TRINH ==="
 #define TITLE "======= PBL1 - De tai 205 ======="
 #define DESCRIPTION                                                            \
@@ -187,8 +196,14 @@ bool load_matrix(string path, bool read_path_stdin, Matrix mat, int *n, int *m) 
 	}
 
   	FILE *file = fopen(path, "r");
-  	if (file == NULL) 		SHOW_ERROR(ERR_FILE_NOT_FOUND(path));
-  	bool foo = scan_matrix(mat, n, m, file, log_file);
+  	if (file == NULL) {
+		char temp[MAX];
+		strcpy(temp, INPUT_DIR);
+		strcat(temp, path);
+		file = fopen(temp, "r");
+		if (file == NULL)	SHOW_ERROR(ERR_FILE_NOT_FOUND(temp));
+	}
+  	bool foo = scan_matrix(mat, n, m, file, stdout);
   	fclose(file);
   	return foo;
 }
@@ -208,12 +223,6 @@ void show_matrix(Matrix mat, int n, int m, FILE *file) {
 //              CAC CUA SO                    //
 // ========================================== //
 
-void input_window() {
-	CLEAR_SCREEN;
-	printf("%s\n\n", TITLE);
-	show_menu(menu_input);
-}
-
 void main_window() {
 	CLEAR_SCREEN;
 	printf("%s\n%s\n\n", TITLE, DESCRIPTION);
@@ -224,6 +233,13 @@ void main_window() {
 	else
 		end = !show_menu(menu_main);
 	if (!end)	main_window();
+}
+
+void input_window() {
+	CLEAR_SCREEN;
+	printf("%s\n\n", TITLE);
+	if (show_menu(menu_input))
+		main_window();
 }
 
 void introduce_window() {
@@ -407,6 +423,7 @@ void leave() {
 }
 
 int main() {
+	MK_IMPORTANT_DIR;
 	log_file = fopen(LOG_PATH, "w");
 	
 	MenuOption mo_input_stdin = create_menu_option(MENU_1_INPUT_STDIN, input_stdin);
@@ -419,7 +436,7 @@ int main() {
 	MenuOption mo_leave = create_menu_option(MENU_8_LEAVE, leave);
 
 	menu_input = create_menu();
-	push(mo_input_stdin, menu_input);	push(mo_input_stdin, menu_input);
+	push(mo_input_stdin, menu_input);	push(mo_input_file, menu_input);
 	push(mo_leave, menu_input);
 
 	menu_main = create_menu();
@@ -441,8 +458,7 @@ int main() {
 	CLEAR_SCREEN;
 	bool foo = load_matrix(INPUT_PATH, false, mat, &n, &m);
 	if (!foo)	input_window(); 	// Neu du lieu sai thi nhap lai.
-
-	main_window();	
+	else	main_window();
 
 	fclose(log_file);
 	free(menu_main);
