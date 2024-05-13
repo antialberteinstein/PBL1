@@ -38,14 +38,18 @@
 \t2/. Tran Nhat Nguyen. \n"
 
 #define INVALID_OPTION_MSG "Canh bao: Lua chon khong hop le."
-#define GOODBYE_MSG "Loi nhan: Hen gap lai..."
+#define GOODBYE_MSG "\tHen gap lai..."
 #define ENTER_TO_CONTINUE "Nhan Enter/Return de tiep tuc."
 
 #define ERR_NE_ROW printf("Qua it dong.\n")
 #define ERR_R_ROW printf("Qua nhieu dong.\n")
 #define ERR_NE_COL(i) printf("Qua it du lieu tren dong %d.\n", i + 1)
 #define ERR_R_COL(i) printf("Qua nhieu du lieu tren dong %d.\n", i + 1)
-#define ERR_DATA_INVALID printf("Du lieu khong hop le.\n");
+#define ERR_DATA_INVALID(i, j, row, col) {													\
+	if (row)		printf("So dong co du lieu khong hop le.\n");							\
+	else if (col)	printf("So cot co du lieu khong hop le.\n");							\
+	else			printf("Du lieu khong hop le tai dong %d, cot %d.\n", i + 1, j + 1);	\
+}
 #define ERR_FILE_NOT_FOUND(file) printf("File %s khong ton tai.\n", file)
 #define SHOW_ERROR(log_func) {												\
 	log_func;		return false;											\
@@ -151,17 +155,22 @@ void push(MenuOption menu_option, Menu menu) {
 
 // Tra ve false neu lua chon thoat chuong trinh.
 bool show_menu(Menu menu) {
+	printf("\n");
 	for (int i = 0; i < menu->count; ++i)
 		printf("%d/. %s\n", i + 1, menu->list[i].label);
 	printf("%s", MENU_ASK_OPTION);
 	int op = (int)(getc(stdin) - '0') - 1;	fflush(stdin);
 	CLEAR_SCREEN;
 	printf("\n");
-	if (op >= menu->count || op < 0)
+	if (op >= menu->count || op < 0){
 		printf("%s\n", INVALID_OPTION_MSG);
-	else
+		enter_to_continue();
+		return show_menu(menu);
+	}
+	else {
 		menu->list[op].action();
-	enter_to_continue();
+		enter_to_continue();
+	}
 	return (menu->list[op].action != leave);
 }
 
@@ -173,16 +182,22 @@ bool show_menu(Menu menu) {
 bool scan_matrix(Matrix mat, int *n, int *m, FILE* file, FILE* log_file) {
   	char dummy;
   	fprintf(log_file, "%s", ROW_INP_LABEL);		fscanf(file, "%d%c", n, &dummy);
-  	if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID);
+  	if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID(0, 0, true, false));
 
   	fprintf(log_file, "%s", COL_INP_LABEL);		fscanf(file, "%d%c", m, &dummy);
-  	if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID);
+  	if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID(0, 0, false, true));
 
   	fprintf(log_file, "%s\n", MAT_INP_LABEL);
   	for (int i = 0; i < *n; ++i)
   		for (int j = 0;j < *m; ++j) {
     		fscanf(file, "%f%c", &mat[i][j], &dummy);
-			if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID);
+    		if (feof(file))			dummy = '\n';
+			if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DATA_INVALID(i, j, false, false));
+			long int pos = ftell(file);
+			while (dummy == ' ')	dummy = getc(file);
+			if (dummy == '\n' && j < *m - 1)		SHOW_ERROR(ERR_NE_COL(i))
+			else if (dummy != '\n' && j >= *m - 1)	SHOW_ERROR(ERR_R_COL(i))
+			else fseek(file, pos, SEEK_SET);
   		}
     return true;
 }
@@ -192,6 +207,8 @@ bool load_matrix(string path, bool read_path_stdin, Matrix mat, int *n, int *m) 
 	if (read_path_stdin) {
 		printf("%s", FILE_PATH_INP_LABEL);
   		fgets(path, MAX, stdin);
+  		printf("DEBUG : %d\n", path[0]);
+  		enter_to_continue();
   		path[strlen(path) - 1] = '\0';
 	}
 
@@ -203,7 +220,7 @@ bool load_matrix(string path, bool read_path_stdin, Matrix mat, int *n, int *m) 
 		file = fopen(temp, "r");
 		if (file == NULL)	SHOW_ERROR(ERR_FILE_NOT_FOUND(temp));
 	}
-  	bool foo = scan_matrix(mat, n, m, file, stdout);
+  	bool foo = scan_matrix(mat, n, m, file, log_file);
   	fclose(file);
   	return foo;
 }
