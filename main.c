@@ -10,7 +10,7 @@
 #define CLEAR_SCREEN system("clear")
 #endif
 
-#define TAO_THU_MUC_QUAN_LI {										\
+#define TAO_THU_MUC_QUAN_LI {									\
 	printf("Tao cac thu muc can thiet...\n");					\
 	if (system("cd INPUT && cd .."))	system("mkdir INPUT");	\
 	if (system("cd OUTPUT && cd .."))	system("mkdir OUTPUT");	\
@@ -19,7 +19,6 @@
 }
 
 #define MAX 100
-#define MSG_LAY_DL "Dang lay du lieu tu file DATA.INP"
 #define CHAR_FORMAT "%7c"
 #define DATA_FORMAT "%7.2f"
 #define XUAT_NGHEIM(file, nghiem, i)	fprintf(file, "x%d = %-7.2g", i + 1, nghiem)
@@ -53,7 +52,7 @@
 }
 #define ERR_FILE_KHONG_TON_TAI(file) printf("File %s khong ton tai.\n", file)
 #define SHOW_ERROR(log_func) {												\
-	log_func;	enter_to_continue();		return false;					\
+	log_func;		return false;											\
 }
 
 #define MSG_HANG_MT "Hang cua ma tran la: "
@@ -76,9 +75,8 @@
 #define MO_INPUT_FROM_FILE "Nhap ma tran tu file."
 #define MO_CONG_DON "Cong don cac phan tu sau cot he so tu do."
 #define MO_HUY_CONG_DON "Tro ve ma tran ban dau truoc khi cong don."
-#define MO_TIM_NGHIEM "Tim nghiem ma tran theo phuong phap Gauss."
-#define MO_BIEN_DOI "Thuc hien cac buoc bien doi ma tran."
-#define MO_TIM_HANG "Tim hang cua ma tran."
+#define MO_TIM_NGHIEM "Tinh."
+#define MO_BIEN_DOI "Bien doi ma tran thanh dang bac thang."
 #define MO_THOAT "Thoat."
 #define MO_NHAP_LUA_CHON "Nhap lua chon cua ban: "
 
@@ -183,8 +181,6 @@ void show_menu(Menu menu) {
 	printf("\n");
 	if (op >= menu->count || op < 0) {
 		printf("%s\n", MSG_LUA_CHON_KHONG_HOP_LE);
-		enter_to_continue();
-		return;
 	}
 	else
 		menu->list[op].action();
@@ -453,15 +449,6 @@ void cal_bien_doi() {
 	bien_doi_ma_tran(mat, 0, 0, n, m, true);
 }
 
-void cal_tim_hang() {
-	Matrix mat_r;
-	int n_r, m_r;
-	cpy_mat(mat_r, &n_r, &m_r, mat, n, m);
-	bien_doi_ma_tran(mat_r, 0, 0, n_r, m_r, false);
-	show_matrix(mat, n, m, stdout);
-	rank(mat_r, n_r, m_r, true);
-}
-
 void thoat() {
 	printf("%s\n", GOODBYE_MSG);
 }
@@ -478,16 +465,14 @@ int main() {
 	MenuOption mo_huy_cong_don = create_menu_option(MO_HUY_CONG_DON, cal_huy_cong_don);
 	MenuOption mo_tim_nghiem = create_menu_option(MO_TIM_NGHIEM, cal_tim_nghiem);
 	MenuOption mo_bien_doi = create_menu_option(MO_BIEN_DOI, cal_bien_doi);
-	MenuOption mo_tim_hang = create_menu_option(MO_TIM_HANG, cal_tim_hang);
 	MenuOption mo_thoat = create_menu_option(MO_THOAT, thoat);
 
 	push(mo_input_from_stdin, menu_main);	push(mo_input_from_file, menu_main);
-	push(mo_cong_don, menu_main);	push(mo_huy_cong_don, menu_main);	push(mo_tim_nghiem, menu_main);
-	push(mo_bien_doi, menu_main);	push(mo_tim_hang, menu_main);	push(mo_thoat, menu_main);
+	push(mo_cong_don, menu_main);	push(mo_huy_cong_don, menu_main);	push(mo_bien_doi, menu_main);
+	push(mo_tim_nghiem, menu_main);	push(mo_thoat, menu_main);
 
 	push(mo_input_from_stdin, menu_kcd);	push(mo_input_from_file, menu_kcd);
-	push(mo_tim_nghiem, menu_kcd);	push(mo_bien_doi, menu_kcd);	push(mo_tim_hang, menu_kcd);
-	push(mo_thoat, menu_kcd);
+	push(mo_bien_doi, menu_kcd);	push(mo_tim_nghiem, menu_kcd);	push(mo_thoat, menu_kcd);
 
 	introduce_window();
 	main_window();
