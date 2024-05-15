@@ -214,7 +214,7 @@ bool scan_matrix(Matrix mat, int *n, int *m, FILE* file, FILE* log_file) {
     		if (feof(file))			dummy = '\n';
 			if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DL_KHONG_HOP_LE(i, j, false, false));
 			if (file == stdin)	continue;
-			long int pos = ftell(file);
+			const long int POSITION = ftell(file);
 			while (dummy == ' ')	dummy = getc(file);
 			if (dummy == '\n' && j < *m - 1) {
 				if (j <= 0)
@@ -225,7 +225,7 @@ bool scan_matrix(Matrix mat, int *n, int *m, FILE* file, FILE* log_file) {
 			else if (dummy != '\n' && j >= *m - 1)
 				SHOW_ERROR(ERR_THUA_COT(i))
 			else
-				fseek(file, pos, SEEK_SET);
+				fseek(file, POSITION, SEEK_SET);
   		}
 	float tmp;
 	if (!feof(file) && fscanf(file, "%f", &tmp) == 1)
@@ -309,7 +309,7 @@ void introduce_window() {
 
 void show_result(FILE* file, Matrix mat_bk, int n_bk, int m_bk,
 		bool vo_nghiem, bool vo_so_nghiem, Vector nghiem) {
-	int so_nghiem = m - 1;
+	const int SO_NGHIEM = m - 1;
 	fprintf(file, "\n\n\n%s\n\n", OUTPUT_LABEL);
 	show_matrix(mat_bk, n_bk, m_bk, file);
 
@@ -319,7 +319,7 @@ void show_result(FILE* file, Matrix mat_bk, int n_bk, int m_bk,
 		fprintf(file, "%s\n", MSG_VO_SO_NGHIEM);
 	else {
 		fprintf(file, "%s ", MSG_CO_NGHIEM);
-		for (int i = 0; i < so_nghiem; ++i)
+		for (int i = 0; i < SO_NGHIEM; ++i)
 			XUAT_NGHEIM(file, nghiem[i], i);
 	}
 }
