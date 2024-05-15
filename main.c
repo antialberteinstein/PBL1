@@ -94,24 +94,21 @@ typedef void (*func)();
 //              KHAI BAO TOAN CUC             //
 // ========================================== //
 struct Menu;
-struct Menu *menu_input, *menu_main, *menu_kcd;
+struct Menu *menu_main, *menu_kcd;
 FILE* log_file;
 Matrix mat, mat_bk;
 int n, m, n_bk, m_bk;
-bool allow_input_loop = false;
 void thoat();  // Ham thoat khoi chuong trinh.
 struct Menu* create_menu();  // Ham tao menu;
 
 void init() {  // Khoi tao cac bien toan cuc.
 	log_file = fopen(LOG_PATH, "w");
-	menu_input = create_menu();
 	menu_main = create_menu();
 	menu_kcd = create_menu();
 }
 
 void destroy() {  // Giai phong cac bien toan cuc duoc cap phat.
 	fclose(log_file);
-	free(menu_input);
 	free(menu_main);
 	free(menu_kcd);
 }
@@ -120,9 +117,14 @@ void destroy() {  // Giai phong cac bien toan cuc duoc cap phat.
 //              CAC HAM THONG DUNG            //
 // ========================================== //
 
+void clear_stdin(){
+	int c;
+	do c = getchar();	while (c != '\n' && c != EOF);
+}
+
 void enter_to_continue() {
 	printf("\n%s...", ENTER_TO_CONTINUE);
-	getc(stdin);	fflush(stdin);
+	clear_stdin();
 }
 
 // Cong don phan tu sau cot he so tu do vao cot he so tu do.
@@ -171,7 +173,7 @@ void push(MenuOption menu_option, Menu menu) {
 }
 
 // Tra ve false neu lua chon khong hop le.
-bool show_menu(Menu menu) {
+void show_menu(Menu menu) {
 	printf("\n");
 	for (int i = 0; i < menu->count; ++i)
 		printf("%d/. %s\n", i + 1, menu->list[i].label);
@@ -182,16 +184,16 @@ bool show_menu(Menu menu) {
 	if (op >= menu->count || op < 0) {
 		printf("%s\n", MSG_LUA_CHON_KHONG_HOP_LE);
 		enter_to_continue();
-		return false;
+		return;
 	}
 	else
 		menu->list[op].action();
+	enter_to_continue();
 	if (menu->list[op].action == thoat) {
 		// Neu user chon thoat thi giai phong bo nho va thoat chuong trinh.
 		destroy();
 		exit(0);
 	}
-	return true;
 }
 
 // ========================================== //
@@ -228,11 +230,10 @@ bool scan_matrix(Matrix mat, int *n, int *m, FILE* file, FILE* log_file) {
 				fseek(file, POSITION, SEEK_SET);
   		}
 	float tmp;
-	if (!feof(file) && fscanf(file, "%f", &tmp) == 1)
+	if (file != stdin && !feof(file) && fscanf(file, "%f", &tmp) == 1)
 		SHOW_ERROR(ERR_THUA_DONG);
 
 	printf("%s\n", MSG_DOC_DL_THANH_CONG);
-	enter_to_continue();
     return true;
 }
 
@@ -284,18 +285,7 @@ void main_window() {
 		show_menu(menu_kcd);
 	else
 		show_menu(menu_main);
-	enter_to_continue();
 	main_window();
-}
-
-void input_window() {
-	allow_input_loop = true;
-	CLEAR_SCREEN;
-	printf("%s\n\n", TITLE);
-
-	if (!show_menu(menu_input))
-		input_window();
-	allow_input_loop = false;
 }
 
 void introduce_window() {
@@ -430,8 +420,6 @@ void input_from_stdin() {
 	int n_i, m_i;
 	if (scan_matrix(mat_i, &n_i, &m_i, stdin, stdout))
 		cpy_mat(mat, &n, &m, mat_i, n_i, m_i);
-	else if (allow_input_loop)
-		input_window();
 }
 
 void input_from_file() {
@@ -440,8 +428,6 @@ void input_from_file() {
 	int n_i, m_i;
 	if (load_matrix(path, true, mat_i, &n_i, &m_i))
 		cpy_mat(mat, &n, &m, mat_i, n_i, m_i);
-	else if (allow_input_loop)
-		input_window();
 }
 
 void cal_cong_don() {  // Cong don.
@@ -483,6 +469,8 @@ void thoat() {
 int main() {
 	TAO_THU_MUC_QUAN_LI;
 	init();
+	// Lay du lieu tu file DATA.INP
+	load_matrix(INPUT_PATH, false, mat, &n, &m);
 	
 	MenuOption mo_input_from_stdin = create_menu_option(MO_INPUT_FROM_STDIN, input_from_stdin);
 	MenuOption mo_input_from_file = create_menu_option(MO_INPUT_FROM_FILE, input_from_file);
@@ -493,9 +481,6 @@ int main() {
 	MenuOption mo_tim_hang = create_menu_option(MO_TIM_HANG, cal_tim_hang);
 	MenuOption mo_thoat = create_menu_option(MO_THOAT, thoat);
 
-	push(mo_input_from_stdin, menu_input);	push(mo_input_from_file, menu_input);
-	push(mo_thoat, menu_input);
-
 	push(mo_input_from_stdin, menu_main);	push(mo_input_from_file, menu_main);
 	push(mo_cong_don, menu_main);	push(mo_huy_cong_don, menu_main);	push(mo_tim_nghiem, menu_main);
 	push(mo_bien_doi, menu_main);	push(mo_tim_hang, menu_main);	push(mo_thoat, menu_main);
@@ -505,14 +490,6 @@ int main() {
 	push(mo_thoat, menu_kcd);
 
 	introduce_window();
-
-	// Lay du lieu ma tran tu file DATA.INP.
-	CLEAR_SCREEN;
-	printf("\n%s\n", MSG_LAY_DL);
-	enter_to_continue();
-	CLEAR_SCREEN;
-	bool foo = load_matrix(INPUT_PATH, false, mat, &n, &m);
-	if (!foo)	input_window(); 	// Neu du lieu sai thi nhap lai.	
 	main_window();
 
 	destroy();
