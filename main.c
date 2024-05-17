@@ -40,6 +40,7 @@
 #define MSG_LUA_CHON_KHONG_HOP_LE "Canh bao: Lua chon khong hop le."
 #define GOODBYE_MSG "\tHen gap lai..."
 #define ENTER_TO_CONTINUE "Nhan Enter/Return de tiep tuc."
+#define BO_QUA_HIEN_BUOC "Nhan ki tu bat ki de bo qua hien buoc."
 
 #define ERR_SO_DONG_LON_HON_COT(n, m) printf("So dong(%d) lon hon hoac bang so cot (%d).", n, m)
 #define ERR_THIEU_DONG printf("Qua it dong.\n")
@@ -110,10 +111,10 @@ void destroy() {  // Giai phong cac bien toan cuc duoc cap phat.
 //              CAC HAM THONG DUNG            //
 // ========================================== //
 
-void enter_to_continue() {
+bool enter_to_continue() {
 	printf("\n%s...", ENTER_TO_CONTINUE);
-	int c;
-	do c = getchar();	while (c != '\n' && c != EOF);
+	fflush(stdin);		char c = getchar();		fflush(stdin);
+	return c == '\n';
 }
 
 // Cong don phan tu sau cot he so tu do vao cot he so tu do.
@@ -322,7 +323,8 @@ void bien_doi_ma_tran(Matrix matrix, int i0, int j0, int n, int m, bool show_ste
         if (show_step) {
 			TB_DOI_DONG(i0, k);
             show_matrix(matrix, n, m, stdout);
-            enter_to_continue();
+			printf("%s", BO_QUA_HIEN_BUOC);
+            show_step = enter_to_continue();
         }
     }
 
@@ -335,7 +337,8 @@ void bien_doi_ma_tran(Matrix matrix, int i0, int j0, int n, int m, bool show_ste
         if (show_step) {
 			TB_BIEN_DOI(i0, tmp, i);
             show_matrix(matrix, n, m, stdout);
-            enter_to_continue();
+            printf("%s", BO_QUA_HIEN_BUOC);
+            show_step = enter_to_continue();
         }
   	}
   	return bien_doi_ma_tran(matrix, i0 + 1, j0 + 1, n, m, show_step);
@@ -370,7 +373,7 @@ void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path) {
     int backup_n, backup_m;
     cpy_mat(backup_matrix, &backup_n, &backup_m, matrix, n, m);
 
-	bien_doi_ma_tran(matrix, 0, 0, n, m, false);
+	bien_doi_ma_tran(matrix, 0, 0, n, m, true);
 	int r_mr = rank(matrix, n, m);
 	int r = rank(matrix, n, m - 1);
 	int so_nghiem = m - 1;
