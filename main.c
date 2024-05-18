@@ -208,7 +208,7 @@ bool scan_matrix(Matrix matrix, int *n, int *m, FILE* file, FILE* log_file) {
 				if (j <= 0)
 					SHOW_ERROR(ERR_THIEU_DONG)
 				else
-					SHOW_ERROR(ERR_THUA_COT(i));
+					SHOW_ERROR(ERR_THIEU_COT(i));
 			}
 			else if (dummy != '\n' && j >= *m - 1)
 				SHOW_ERROR(ERR_THUA_COT(i))
@@ -281,10 +281,15 @@ void introduce_window() {
 // ========================================== //
 
 void xuat_nghiem(FILE* file, Matrix backup_matrix, int backup_n, int backup_m,
-		bool vo_nghiem, bool vo_so_nghiem, Vector nghiem) {
+		Matrix matrix, bool vo_nghiem, bool vo_so_nghiem, Vector nghiem) {
 	const int SO_NGHIEM = m - 1;
 	fprintf(file, "\n\n\n%s\n\n", OUTPUT_LABEL);
 	show_matrix(backup_matrix, backup_n, backup_m, file);
+	
+	fprintf(file, "===============================================================\n");
+	fprintf(file, "%s\n", "Ma tran duoc bien doi la:");
+	show_matrix(matrix, backup_n, backup_m, file);
+	fprintf(file, "================================================================\n");
 
 	if (vo_nghiem)
 		fprintf(file, "%s\n", MSG_VO_NGHIEM);
@@ -298,9 +303,9 @@ void xuat_nghiem(FILE* file, Matrix backup_matrix, int backup_n, int backup_m,
 }
 
 void swap(float *a, float *b) {
-  float tmp = *a;
-  *a = *b;
-  *b = tmp;
+  	float tmp = *a;
+  	*a = *b;
+  	*b = tmp;
 }
 
 void swap_row(Matrix matrix, int m, int i1, int i2) {
@@ -366,7 +371,7 @@ void xac_dinh_nghiem(Matrix matrix, int n, int m, Vector nghiem) {
     }
 }
 
-void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path) {
+void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path, bool check) {
     Vector nghiem;
 
     Matrix backup_matrix;
@@ -380,15 +385,18 @@ void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path) {
 
 	FILE* file = fopen(output_path, "a");
 	if (r != r_mr) {
-		xuat_nghiem(stdout, backup_matrix, backup_n, backup_m, true, false, nghiem);
-		xuat_nghiem(file, backup_matrix, backup_n, backup_m, true, false, nghiem);
+		xuat_nghiem(stdout, backup_matrix, backup_n, backup_m, matrix, true, false, nghiem);
+		if (check)
+			xuat_nghiem(file, backup_matrix, backup_n, backup_m, matrix, true, false, nghiem);
 	} else if (r < so_nghiem) {
-		xuat_nghiem(stdout, backup_matrix, backup_n, backup_m, false, true, nghiem);
-		xuat_nghiem(file, backup_matrix, backup_n, backup_m, false, true, nghiem);
+		xuat_nghiem(stdout, backup_matrix, backup_n, backup_m, matrix, false, true, nghiem);
+		if (check)
+			xuat_nghiem(file, backup_matrix, backup_n, backup_m, matrix, false, true, nghiem);
 	} else {
 		xac_dinh_nghiem(matrix, n, m, nghiem);
-		xuat_nghiem(stdout, backup_matrix, backup_n, backup_m, false, false, nghiem);
-		xuat_nghiem(file, backup_matrix, backup_n, backup_m, false, false, nghiem);
+		xuat_nghiem(stdout, backup_matrix, backup_n, backup_m, matrix, false, false, nghiem);
+		if (check)
+			xuat_nghiem(file, backup_matrix, backup_n, backup_m, matrix, false, false, nghiem);
 	}
 
 	fclose(file);
@@ -424,16 +432,24 @@ void cal_huy_cong_don() {  // Huy cong don.
 	show_matrix(matrix, n, m, stdout);
 }
 
-void cal_tim_nghiem() {
+void xuat() {
 	Matrix cal_matrix;
 	int cal_n, cal_m;
 	cpy_mat(cal_matrix, &cal_n, &cal_m, matrix, n, m);
-	bien_doi_Gauss(cal_matrix, cal_n, cal_m, OUTPUT_PATH);
+	bien_doi_Gauss(cal_matrix, cal_n, cal_m, OUTPUT_PATH, true);
+	printf("\nXuat thanh cong vao file DATA.OUT!\n");
 }
 
 void cal_bien_doi() {
 	show_matrix(matrix, n, m, stdout);
 	bien_doi_ma_tran(matrix, 0, 0, n, m, true);
+}
+
+void cal_tim_nghiem() {
+	Matrix cal_matrix;
+	int cal_n, cal_m;
+	cpy_mat(cal_matrix, &cal_n, &cal_m, matrix, n, m);
+	bien_doi_Gauss(cal_matrix, cal_n, cal_m, OUTPUT_PATH, false);
 }
 
 void thoat() {
@@ -450,8 +466,9 @@ int main() {
 	push(MO_INPUT_FROM_FILE, input_from_file, menu);
 	push(MO_CONG_DON, cal_cong_don, menu);
 	push(MO_HUY_CONG_DON, cal_huy_cong_don, menu);
-	push(MO_TIM_NGHIEM, cal_tim_nghiem, menu);
 	push(MO_BIEN_DOI, cal_bien_doi, menu);
+	push(MO_TIM_NGHIEM, cal_tim_nghiem, menu);
+	push("Xuat", xuat, menu);
 	push(MO_THOAT, thoat, menu);
 
 	introduce_window();
