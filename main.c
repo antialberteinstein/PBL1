@@ -358,7 +358,8 @@ void bien_doi_ma_tran(Matrix matrix, int i0, int j0, int n, int m, bool show_ste
 		if(show_step)	TB_BD_THANH_CONG;
 		pivot_row = -1;		dest_row = -1;
 		current_row = n + 1;
-		show_matrix(matrix, n, m, stdout);
+		if (show_step)
+			show_matrix(matrix, n, m, stdout);
 		allow_color_showing_in_matrix = false;
 		current_row = -1;
 		return;
@@ -439,10 +440,11 @@ void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path, bool check)
 
 	char c = getche();
 	// Sua loi troi tren UNIX
-	if (c != ENTER1 && c != ENTER2)
+	bool show_step = (c == ENTER1 || c == ENTER2);
+	if (!show_step)
 		CLEAR_STDIN;
 
-	bien_doi_ma_tran(matrix, 0, 0, n, m, c == ENTER1 || c == ENTER2, 1);
+	bien_doi_ma_tran(matrix, 0, 0, n, m, show_step, 1);
 	int r_mr = rank(matrix, n, m);
 	int r = rank(matrix, n, m - 1);
 	int so_nghiem = m - 1;
