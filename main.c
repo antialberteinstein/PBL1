@@ -7,20 +7,16 @@
 #ifdef _WIN32
 #define CLEAR_SCREEN system("cls")
 #include <conio.h>
+#define CLEAR_STDIN fflush(stdin)
 #else
 #define CLEAR_SCREEN system("clear")
-#include <termios.h>
-#include <unistd.h>
-int getche() {
-	struct termios oldattr, newattr;
-    int ch;
-    tcgetattr( STDIN_FILENO, &oldattr );
-    newattr = oldattr;
-    newattr.c_lflag &= ~( ICANON );
-    tcsetattr( STDIN_FILENO, TCSANOW, &newattr );
-    ch = getchar();
-    tcsetattr( STDIN_FILENO, TCSANOW, &oldattr );
-    return ch;
+#define CLEAR_STDIN while (getchar() != '\n')
+
+int getch() {
+	return getchar();
+}
+int getche(void) {
+	return getch();
 }
 #endif
 
@@ -177,7 +173,11 @@ void show_menu(Menu menu) {
 		printf("-");
 	printf("+\n\n");
 	printf("%s", "Nhap lua chon cua ban: ");
-	int op = (int)(getchar() - '0') - 1;	fflush(stdin);
+	int op = (int)getchar();
+	// Sua loi troi tren UNIX.
+	if (op != ENTER1 && op != ENTER2)
+		CLEAR_STDIN;
+	op -= '0' + 1;
 	CLEAR_SCREEN;
 	printf("\n");
 	if (op >= menu->count || op < 0) {
@@ -436,7 +436,12 @@ void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path, bool check)
 	printf("| Chon phim bat ki de tu choi. |\n");
 	printf("+------------------------------+\n\n");
 	printf("Chon: ");
+
 	char c = getche();
+	// Sua loi troi tren UNIX
+	if (c != ENTER1 && c != ENTER2)
+		CLEAR_STDIN;
+
 	bien_doi_ma_tran(matrix, 0, 0, n, m, c == ENTER1 || c == ENTER2, 1);
 	int r_mr = rank(matrix, n, m);
 	int r = rank(matrix, n, m - 1);
