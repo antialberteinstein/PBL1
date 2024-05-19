@@ -20,12 +20,27 @@ int getche(void) {
 }
 #endif
 
+#define ENABLE_COLOR 1
+#if ENABLE_COLOR
 // Tao mau sac.
 #define RED   	"\x1B[31m"
 #define GREEN   "\x1B[32m"
 #define YELLOW	"\x1B[33m"
 #define BLUE	"\x1B[34m"
 #define RESET 	"\x1B[0m"
+
+#define SET_COLOR(color)	printf(color)
+#define RESET_COLOR			printf(RESET)
+#else
+#define RED
+#define GREEN
+#define YELLOW
+#define BLUE
+#define RESET
+
+#define SET_COLOR(color)
+#define RESET_COLOR
+#endif
 
 #define TAO_THU_MUC_QUAN_LI {									\
 	printf("Tao cac thu muc can thiet...\n");					\
@@ -44,17 +59,17 @@ int getche(void) {
 #define CHAR_FORMAT "%7c"
 #define DATA_FORMAT "%7.2f"
 #define XUAT_NGHEIM(file, nghiem, i)	fprintf(file, "x%d = %.2g\n", i + 1, nghiem)
-#define INPUT_DIR "INPUT/"
-#define LOG_PATH "log/log.txt"
-#define INPUT_PATH "DATA.INP"
-#define OUTPUT_PATH "OUTPUT/DATA.OUT"
+#define INPUT_DIR 		"INPUT/"
+#define LOG_PATH 		"log/log.txt"
+#define INPUT_PATH 		"DATA.INP"
+#define OUTPUT_PATH 	"OUTPUT/DATA.OUT"
 
 #define ERR_SO_DONG_LON_HON_COT(n, m)\
 	printf(RED "So dong(%d) lon hon hoac bang so cot (%d)." RESET, n, m)
-#define ERR_THIEU_DONG printf(RED "Qua it dong.\n" RESET)
-#define ERR_THUA_DONG printf(RED "Qua nhieu dong.\n" RESET)
-#define ERR_THIEU_COT(i) printf(RED "Qua it du lieu tren dong %d.\n" RESET, i + 1)
-#define ERR_THUA_COT(i) printf(RED "Qua nhieu du lieu tren dong %d.\n" RESET, i + 1)
+#define ERR_THIEU_DONG 		printf(RED "Qua it dong.\n" RESET)
+#define ERR_THUA_DONG 		printf(RED "Qua nhieu dong.\n" RESET)
+#define ERR_THIEU_COT(i) 	printf(RED "Qua it du lieu tren dong %d.\n" RESET, i + 1)
+#define ERR_THUA_COT(i) 	printf(RED "Qua nhieu du lieu tren dong %d.\n" RESET, i + 1)
 #define ERR_DL_KHONG_HOP_LE(i, j, row, col) {											\
 	if (row)		printf(RED "So dong co du lieu khong hop le.\n" RESET);				\
 	else if (col)	printf(RED "So cot co du lieu khong hop le.\n" RESET);				\
@@ -64,13 +79,13 @@ int getche(void) {
 #define ERR_FILE_KHONG_TON_TAI(file) printf(RED "File %s khong ton tai.\n" RESET, file)
 #define SHOW_ERROR(log_func) { log_func;		return false; }
 
-#define TB_BD_THANH_CONG printf(GREEN "Ma tran da duoc bien doi!\n" RESET);
-#define TB_DOI_DONG(i1, i2) printf(YELLOW "Doi dong %d va %d.\n" RESET, i1 + 1, i2 + 1)
-#define TB_BIEN_DOI(i1, k, i2) printf(YELLOW "Lay dong %d tru di %g lan dong %d.\n" RESET, i2 + 1, k, i1 + 1)
-#define MSG_VO_SO_NGHIEM "He phuong trinh co vo so nghiem."
-#define MSG_VO_NGHIEM "He phuong trinh vo nghiem."
-#define MSG_CO_NGHIEM "He phuong trinh co nghiem la: "
-#define OUTPUT_LABEL "\tTIM NGHIEM HE PHUONG TRINH TUYEN TINH"
+#define TB_BD_THANH_CONG 		printf(GREEN "Ma tran da duoc bien doi!\n" RESET);
+#define TB_DOI_DONG(i1, i2) 	printf(YELLOW "Doi dong %d va %d.\n" RESET, i1 + 1, i2 + 1)
+#define TB_BIEN_DOI(i1, k, i2) 	printf(YELLOW "Lay dong %d tru di %g lan dong %d.\n" RESET, i2 + 1, k, i1 + 1)
+#define MSG_VO_SO_NGHIEM 	"He phuong trinh co vo so nghiem."
+#define MSG_VO_NGHIEM 		"He phuong trinh vo nghiem."
+#define MSG_CO_NGHIEM 		"He phuong trinh co nghiem la: "
+#define OUTPUT_LABEL 		"\tTIM NGHIEM HE PHUONG TRINH TUYEN TINH"
 
 typedef char *string;
 typedef float Matrix[MAX][MAX];
@@ -86,8 +101,8 @@ typedef void (*func)();
 struct Menu;
 struct Menu *menu;
 FILE* log_file;
-Matrix matrix, backup_matrix;
-int n, m, backup_n, backup_m;
+Matrix matrix, 		backup_matrix;
+int n, m, 			backup_n, backup_m;
 void thoat();  // Ham thoat khoi chuong trinh.
 struct Menu* create_menu();  // Ham tao menu;
 bool allow_color_showing_in_matrix = false;
@@ -267,13 +282,13 @@ void show_matrix(Matrix matrix, int n, int m, FILE *file) {
 			if (j == m - 1)
 				fprintf(file, CHAR_FORMAT, '|');
 			if (matrix[i][j] == 0 && i < current_row && allow_color_showing_in_matrix)
-				printf(GREEN);
+				SET_COLOR(GREEN);
 			if (allow_color_showing_in_matrix && i == pivot_row)
-				printf(BLUE);
+				SET_COLOR(BLUE);
 			if (allow_color_showing_in_matrix && i == dest_row)
-				printf(RED);
+				SET_COLOR(RED);
 			fprintf(file, DATA_FORMAT, matrix[i][j]);
-			printf(RESET);
+			RESET_COLOR;
 		}
     	fprintf(file, "\n");
   	}
@@ -281,10 +296,32 @@ void show_matrix(Matrix matrix, int n, int m, FILE *file) {
 }
 
 void hien_thi_hpt(Matrix matrix, int so_nghiem, FILE* file) {
+	int pivot;
 	for (int i = 0; i < so_nghiem; ++i) {
+		pivot = -1;
 		for (int j = 0; j < so_nghiem; ++j) {
-			//
+			if (matrix[i][j] == 0) {
+				fprintf(file, "%10c", ' ');
+			} else {
+				if (pivot == -1)
+					pivot = j;
+				float fabs_value = fabs(matrix[i][j]);
+				if (j == pivot)
+					if (fabs_value != 1)
+						fprintf(file, "%6.2g", matrix[i][j], j + 1);
+					else
+						fprintf(file, "%6c", ' ');
+				else {
+					fprintf(file, "  %c", ((matrix[i][j] > 0) ? '+' : '-'));
+					if (fabs_value != 1)
+						fprintf(file, "%3.2g", fabs_value);
+					else
+						fprintf(file, "%3c", ' ');
+				}
+				fprintf(file, "[x%d]", j + 1);
+			}
 		}
+		fprintf(file, "  =%3.2g\n", matrix[i][so_nghiem]);
 	}
 }
 
@@ -295,23 +332,23 @@ void hien_thi_hpt(Matrix matrix, int so_nghiem, FILE* file) {
 void main_window() {
 	cong_don(matrix, &n, &m);
 	CLEAR_SCREEN;
-	printf(YELLOW);
+	SET_COLOR(YELLOW);
 	printf("                     PBL1: De tai 205\n\n");
-	printf(RESET);
+	RESET_COLOR;
 	show_matrix(matrix, n, m, stdout);
 	show_menu(menu);
 	main_window();
 }
 
 void introduce_window() {
-	printf(YELLOW);
+	SET_COLOR(YELLOW);
 	printf("                     PBL1: De tai 205\n");
-	printf(RESET);
+	RESET_COLOR;
 	printf("      +) Tim nghiem he phuong trinh bang phuong phap Gauss.\n");
 	printf("      +) Cong don phan tu sau cot he so tu do vao cot he so tu do.\n\n");
-	printf(YELLOW);
+	SET_COLOR(YELLOW);
 	printf("\n                   Nhom 13:\n");
-	printf(RESET);
+	RESET_COLOR;
 	printf("              +) Vu Duc Minh.\n");
 	printf("              +) Tran Nhat Nguyen.\n");
 	enter_to_continue();
@@ -325,7 +362,8 @@ void xuat_nghiem(FILE* file, Matrix backup_matrix, int backup_n, int backup_m,
 		Matrix matrix, bool vo_nghiem, bool vo_so_nghiem, Vector nghiem) {
 	const int SO_NGHIEM = m - 1;
 	fprintf(file, "\n\n\n%s\n\n", OUTPUT_LABEL);
-	show_matrix(backup_matrix, backup_n, backup_m, file);
+	HR(file);
+	hien_thi_hpt(backup_matrix, SO_NGHIEM, file);
 	
 	HR(file);
 	fprintf(file, "%s\n", "Ma tran duoc bien doi la:");
