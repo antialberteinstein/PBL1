@@ -58,7 +58,7 @@ int getche(void) {
 #define MAX 100
 #define CHAR_FORMAT "%7c"
 #define DATA_FORMAT "%7.2f"
-#define XUAT_NGHEIM(file, nghiem, i)	fprintf(file, "x%d = %.2g\n", i + 1, nghiem)
+#define XUAT_NGHIEM(file, nghiem, i)	fprintf(file, "x%d = %.2g\n", i + 1, nghiem)
 #define INPUT_DIR 		"INPUT/"
 #define LOG_PATH 		"log/log.txt"
 #define INPUT_PATH 		"DATA.INP"
@@ -98,11 +98,11 @@ typedef void (*func)();
 // ========================================== //
 //              KHAI BAO TOAN CUC             //
 // ========================================== //
+struct MatrixRecord;
 struct Menu;
 struct Menu *menu;
 FILE* log_file;
-Matrix matrix, 		backup_matrix;
-int n, m, 			backup_n, backup_m;
+struct MatrixRecord current, backup;
 void thoat();  // Ham thoat khoi chuong trinh.
 struct Menu* create_menu();  // Ham tao menu;
 bool allow_color_showing_in_matrix = false;
@@ -146,6 +146,12 @@ void cpy_mat(Matrix dest, int *n_dest, int *m_dest, Matrix src, int n, int m) {
 // ========================================== //
 //              KHOI TAO MENU                 //
 // ========================================== //
+
+typedef struct MatrixRecord {
+	Matrix matrix;
+	int n;
+	int m;
+} MatrixRecord;
 
 typedef struct {
 	string label;
@@ -330,12 +336,12 @@ void hien_thi_hpt(Matrix matrix, int so_nghiem, FILE* file) {
 // ========================================== //
 
 void main_window() {
-	cong_don(matrix, &n, &m);
+	cong_don(current.matrix, &current.n, &current.m);
 	CLEAR_SCREEN;
 	SET_COLOR(YELLOW);
 	printf("                     PBL1: De tai 205\n\n");
 	RESET_COLOR;
-	show_matrix(matrix, n, m, stdout);
+	show_matrix(current.matrix, current.n, current.m, stdout);
 	show_menu(menu);
 	main_window();
 }
@@ -358,26 +364,40 @@ void introduce_window() {
 //             CAC HAM TINH NGHIEM            //
 // ========================================== //
 
-void xuat_nghiem(FILE* file, Matrix backup_matrix, int backup_n, int backup_m,
-		Matrix matrix, bool vo_nghiem, bool vo_so_nghiem, Vector nghiem) {
-	const int SO_NGHIEM = m - 1;
+void xac_dinh_nghiem(Matrix matrix, int n, int m, Vector nghiem) {
+    nghiem[n - 1] = matrix[n - 1][n]/matrix[n - 1][n - 1];
+    float c = 0;
+    for (int i = n - 2; i >= 0; --i) {
+        c = 0;
+        for (int j = n - 1; j > i; --j) {
+            c += matrix[i][j] * nghiem[j];
+        }
+        nghiem[i] = (matrix[i][n] - c)/matrix[i][i];
+        if (nghiem[i] == 0)     nghiem[i] = 0;
+    }
+}
+
+void xuat_nghiem(FILE* file, MatrixRecord backup,
+		Matrix matrix, int r, int r_mr, Vector nghiem) {
+	const int SO_NGHIEM = backup.m - 1;
 	fprintf(file, "\n\n\n%s\n\n", OUTPUT_LABEL);
 	HR(file);
-	hien_thi_hpt(backup_matrix, SO_NGHIEM, file);
+	hien_thi_hpt(backup.matrix, SO_NGHIEM, file);
 	
 	HR(file);
 	fprintf(file, "%s\n", "Ma tran duoc bien doi la:");
-	show_matrix(matrix, backup_n, backup_m, file);
+	show_matrix(matrix, backup.n, backup.m, file);
 	HR(file);
 
-	if (vo_nghiem)
+	if (r != r_mr)
 		fprintf(file, "%s\n", MSG_VO_NGHIEM);
-	else if (vo_so_nghiem)
+	else if (r < r_mr)
 		fprintf(file, "%s\n", MSG_VO_SO_NGHIEM);
 	else {
+		xac_dinh_nghiem(matrix, backup.n, backup.m, nghiem);
 		fprintf(file, "%s\n", MSG_CO_NGHIEM);
 		for (int i = 0; i < SO_NGHIEM; ++i)
-			XUAT_NGHEIM(file, nghiem[i], i);
+			XUAT_NGHIEM(file, nghiem[i], i);
 	}
 }
 
@@ -449,25 +469,11 @@ int rank(Matrix matrix, int n, int m) {
     return r; 
 }
 
-void xac_dinh_nghiem(Matrix matrix, int n, int m, Vector nghiem) {
-    nghiem[n - 1] = matrix[n - 1][n]/matrix[n - 1][n - 1];
-    float c = 0;
-    for (int i = n - 2; i >= 0; --i) {
-        c = 0;
-        for (int j = n - 1; j > i; --j) {
-            c += matrix[i][j] * nghiem[j];
-        }
-        nghiem[i] = (matrix[i][n] - c)/matrix[i][i];
-        if (nghiem[i] == 0)     nghiem[i] = 0;
-    }
-}
-
 void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path, bool check) {
     Vector nghiem;
 
-    Matrix backup_matrix;
-    int backup_n, backup_m;
-    cpy_mat(backup_matrix, &backup_n, &backup_m, matrix, n, m);
+    MatrixRecord backup;
+    cpy_mat(backup.matrix, &backup.n, &backup.m, matrix, n, m);
 
 	printf("Hien cac buoc bien doi?\n");
 	printf("+------------------------------+\n");
@@ -488,21 +494,9 @@ void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path, bool check)
 	int so_nghiem = m - 1;
 
 	FILE* file = fopen(output_path, "a");
-	if (r != r_mr) {
-		xuat_nghiem(stdout, backup_matrix, backup_n, backup_m, matrix, true, false, nghiem);
-		if (check)
-			xuat_nghiem(file, backup_matrix, backup_n, backup_m, matrix, true, false, nghiem);
-	} else if (r < so_nghiem) {
-		xuat_nghiem(stdout, backup_matrix, backup_n, backup_m, matrix, false, true, nghiem);
-		if (check)
-			xuat_nghiem(file, backup_matrix, backup_n, backup_m, matrix, false, true, nghiem);
-	} else {
-		xac_dinh_nghiem(matrix, n, m, nghiem);
-		xuat_nghiem(stdout, backup_matrix, backup_n, backup_m, matrix, false, false, nghiem);
-		if (check)
-			xuat_nghiem(file, backup_matrix, backup_n, backup_m, matrix, false, false, nghiem);
-	}
-
+	xuat_nghiem(stdout, backup, matrix, r, r_mr, nghiem);
+	if (check)
+		xuat_nghiem(file, backup, matrix, r, r_mr, nghiem);
 	fclose(file);
 }
 
@@ -511,43 +505,38 @@ void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path, bool check)
 // ========================================== //
 
 void nhap_tu_stdin() {
-	Matrix input_matrix;
-	int input_n, input_m;
-	if (scan_matrix(input_matrix, &input_n, &input_m, stdin, stdout))
-		cpy_mat(matrix, &n, &m, input_matrix, input_n, input_m);
+	MatrixRecord input;
+	if (scan_matrix(input.matrix, &input.n, &input.m, stdin, stdout))
+		cpy_mat(current.matrix, &current.n, &current.m, input.matrix, input.n, input.m);
 }
 
 void nhap_tu_file() {
 	char path[MAX];
-	Matrix input_matrix;
-	int input_n, input_m;
-	if (load_matrix(path, true, input_matrix, &input_n, &input_m))
-		cpy_mat(matrix, &n, &m, input_matrix, input_n, input_m);
+	MatrixRecord input;
+	if (load_matrix(path, true, input.matrix, &input.n, &input.m))
+		cpy_mat(current.matrix, &current.n, &current.m, input.matrix, input.n, input.m);
 }
 
 void xuat() {
-	Matrix cal_matrix;
-	int cal_n, cal_m;
-	cpy_mat(cal_matrix, &cal_n, &cal_m, matrix, n, m);
-	bien_doi_Gauss(cal_matrix, cal_n, cal_m, OUTPUT_PATH, true);
+	MatrixRecord cal;
+	cpy_mat(cal.matrix, &cal.n, &cal.m, current.matrix, current.n, current.m);
+	bien_doi_Gauss(cal.matrix, cal.n, cal.m, OUTPUT_PATH, true);
 	printf("\nXuat thanh cong vao file DATA.OUT!\n");
 }
 
 void bien_doi() {
 	printf("+) Ma tran ban dau:\n");
-	show_matrix(matrix, n, m, stdout);
-	Matrix cal_matrix;
-	int cal_n, cal_m;
-	cpy_mat(cal_matrix, &cal_n, &cal_m, matrix, n, m);
-	bien_doi_ma_tran(cal_matrix, 0, 0, cal_n, cal_m, true, 1);
+	show_matrix(current.matrix, current.n, current.m, stdout);
+	MatrixRecord cal;
+	cpy_mat(cal.matrix, &cal.n, &cal.m, current.matrix, current.n, current.m);
+	bien_doi_ma_tran(cal.matrix, 0, 0, cal.n, cal.m, true, 1);
 }
 
 void tim_nghiem() {
-	Matrix cal_matrix;
-	int cal_n, cal_m;
-	cpy_mat(cal_matrix, &cal_n, &cal_m, matrix, n, m);
+	MatrixRecord cal;
+	cpy_mat(cal.matrix, &cal.n, &cal.m, current.matrix, current.n, current.m);
 
-	bien_doi_Gauss(cal_matrix, cal_n, cal_m, OUTPUT_PATH, false);
+	bien_doi_Gauss(cal.matrix, cal.n, cal.m, OUTPUT_PATH, false);
 }
 
 void thoat() {
@@ -558,7 +547,7 @@ int main() {
 	TAO_THU_MUC_QUAN_LI;
 	init();
 	// Lay du lieu tu file DATA.INP
-	load_matrix(INPUT_PATH, false, matrix, &n, &m);
+	load_matrix(INPUT_PATH, false, current.matrix, &current.n, &current.m);
 	CLEAR_SCREEN;
 	
 	push("Nhap ma tran tu ban phim.                     |", nhap_tu_stdin, menu);
