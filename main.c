@@ -57,7 +57,7 @@ int getche(void) {
 
 #define MAX 100
 #define CHAR_FORMAT "%7c"
-#define DATA_FORMAT "%7.2f"
+#define DATA_FORMAT "%7.4g"
 #define XUAT_NGHIEM(file, nghiem, i)	fprintf(file, "x%d = %.2g\n", i + 1, nghiem)
 #define INPUT_DIR 		"INPUT/"
 #define LOG_PATH 		"log/log.txt"
@@ -105,14 +105,31 @@ FILE* log_file;
 struct MatrixRecord current, backup;
 void thoat();  // Ham thoat khoi chuong trinh.
 struct Menu* create_menu();  // Ham tao menu;
-bool allow_color_showing_in_matrix = false;
-int pivot_row = -1;  // Chi so cua dong tru/doi dong (dong o tren).
-int dest_row = -1;   // Chi so cua dong bi tru/doi dong (dong o duoi).
-int current_row = -1;	// Chi so cua dong hien tai dang bien doi.
 
-void init() {  // Khoi tao cac bien toan cuc.
+typedef struct {
+	bool allow;
+	int pivot;  	// Chi so cua dong tru/doi dong (dong o tren).
+	int dest;   	// Chi so cua dong bi tru/doi dong (dong o duoi).
+	int current;	// Chi so cua dong hien tai dang bien doi.
+} ColorShowing;
+
+ColorShowing color_showing;
+
+void set_color_showing(int pivot, int dest, int current) {
+	color_showing.pivot = pivot;
+	color_showing.dest = dest;
+	color_showing.current = current;
+}
+
+void reset_color_showing() {
+	color_showing.allow = false;
+	set_color_showing(-1, -1, -1);
+}
+
+void init() {  // Khoi tao cac bien toan cuc
 	log_file = fopen(LOG_PATH, "w");
 	menu = create_menu();
+	reset_color_showing();
 }
 
 void destroy() {  // Giai phong cac bien toan cuc duoc cap phat.
@@ -422,7 +439,7 @@ void bien_doi_ma_tran(Matrix matrix, int i0, int j0, int n, int m, bool show_ste
 		current_row = -1;
 		return;
 	}
-	allow_color_showing_in_matrix = show_step;
+	color_showing.allow = show_step;
     int k;
     if (matrix[i0][j0] == 0) {
         // Tim vi tri dau tien khac 0.
@@ -436,8 +453,10 @@ void bien_doi_ma_tran(Matrix matrix, int i0, int j0, int n, int m, bool show_ste
 			printf("\n\n");		HR(stdout);
 			printf("+)BUOC %d:\n", step++);
 			TB_DOI_DONG(i0, k);
+			set_color_showing(i0, k,
+				(color_showing.current < color_showing.dest) ? dest_row : current_row);
 			pivot_row = i0;		dest_row = k;
-			current_row = (current_row < dest_row) ? dest_row : current_row;
+			current_row = ;
             show_matrix(matrix, n, m, stdout);
         }
     }
