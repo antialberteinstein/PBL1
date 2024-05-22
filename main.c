@@ -57,7 +57,7 @@ int getche(void) {
 
 #define MAX 100
 #define CHAR_FORMAT "%7c"
-#define DATA_FORMAT "%7.4g"
+#define DATA_FORMAT "%7.2f"
 #define XUAT_NGHIEM(file, nghiem, i)	fprintf(file, "x%d = %.2g\n", i + 1, nghiem)
 #define INPUT_DIR 		"INPUT/"
 #define LOG_PATH 		"log/log.txt"
@@ -87,6 +87,10 @@ int getche(void) {
 #define MSG_CO_NGHIEM 		"He phuong trinh co nghiem la: "
 #define OUTPUT_LABEL 		"\tTIM NGHIEM HE PHUONG TRINH TUYEN TINH"
 
+// ========================================== //
+//              CAC CAU TRUC DU LIEU          //
+// ========================================== //
+
 typedef char *string;
 typedef float Matrix[MAX][MAX];
 typedef float Vector[MAX];
@@ -95,51 +99,74 @@ typedef unsigned char bool;
 #define false 0
 typedef void (*func)();
 
+typedef struct {
+	Matrix matrix;
+	int n;
+	int m;
+} MatrixRecord;
+
+typedef struct {
+	int rank;		// Hang cua ma tran he so.
+	int rank_mr;	// Hang cua ma tran mo rong.
+	Vector nghiem;
+	float det; 		// Dinh thuc cua ma tran.
+} MatrixCalculationRecord;
+
+typedef struct {
+	string label;
+	func action;
+} MenuOption;
+
+typedef struct Menu {
+	MenuOption list[MAX];
+	int count;
+} * Menu;
+
 // ========================================== //
 //              KHAI BAO TOAN CUC             //
 // ========================================== //
-struct MatrixRecord;
-struct Menu;
-struct Menu *menu;
+Menu menu;
 FILE* log_file;
-struct MatrixRecord current, backup;
+MatrixRecord current, backup, calculation;
+MatrixCalculationRecord calculation_result;
+
 void thoat();  // Ham thoat khoi chuong trinh.
-struct Menu* create_menu();  // Ham tao menu;
+Menu create_menu();  // Ham tao menu;
+void show_matrix(Matrix, int, int, FILE*);
+void hien_thi_hpt(Matrix, int, FILE*);
 
-typedef struct {
-	bool allow;
-	int pivot;  	// Chi so cua dong tru/doi dong (dong o tren).
-	int dest;   	// Chi so cua dong bi tru/doi dong (dong o duoi).
-	int current;	// Chi so cua dong hien tai dang bien doi.
-} ColorShowing;
+// ========================================== //
+//              CAC CO DIEU KHIEN CT          //
+// ========================================== //
 
-ColorShowing color_showing;
+bool allow_color_showing_in_matrix = false;  // Cho phep hien mau trong qua trinh bien doi ma tran.
+int pivot_row = -1;  	// Chi so cua dong tru/doi dong (dong o tren).
+int dest_row = -1;   	// Chi so cua dong bi tru/doi dong (dong o duoi).
+int current_row = -1;	// Chi so cua dong hien tai dang bien doi.
+bool allow_matrix_separator = true;		// Cho phep hien dau phan cach doi voi cot he so tu do.
 
-void set_color_showing(int pivot, int dest, int current) {
-	color_showing.pivot = pivot;
-	color_showing.dest = dest;
-	color_showing.current = current;
-}
+// ========================================== //
+//              CAC HAM THONG DUNG            //
+// ========================================== //
 
-void reset_color_showing() {
-	color_showing.allow = false;
-	set_color_showing(-1, -1, -1);
+void set_row_for_showing_color(int pivot, int dest) {
+	pivot_row = pivot;
+	dest_row = dest;
+	if (pivot == -1 && dest == -1)
+		current_row = 10e3;
+	else
+		current_row =((current_row < dest_row) ? dest_row : current_row);
 }
 
 void init() {  // Khoi tao cac bien toan cuc
 	log_file = fopen(LOG_PATH, "w");
 	menu = create_menu();
-	reset_color_showing();
 }
 
 void destroy() {  // Giai phong cac bien toan cuc duoc cap phat.
 	fclose(log_file);
 	free(menu);
 }
-
-// ========================================== //
-//              CAC HAM THONG DUNG            //
-// ========================================== //
 
 bool enter_to_continue() {
 	printf("\nNhan Enter/Return de tiep tuc...");
@@ -160,25 +187,162 @@ void cpy_mat(Matrix dest, int *n_dest, int *m_dest, Matrix src, int n, int m) {
 	*n_dest = n;	*m_dest = m;
 }
 
+// Tinh nang them: tinh dinh thuc ma tran he so (ma tran dau vao phai duoc bien doi truoc do).
+float det(Matrix matrix, int n) {
+	float _det = 1;
+	for (int i = 0; i < n; ++i)
+		_det *= matrix[i][i];
+	return _det;
+}
+
+// ========================================== //
+//             CAC HAM TINH NGHIEM            //
+// ========================================== //
+
+void xac_dinh_nghiem(Matrix matrix, int n, int m, Vector nghiem) {
+    nghiem[n - 1] = matrix[n - 1][n]/matrix[n - 1][n - 1];
+    float c = 0;
+    for (int i = n - 2; i >= 0; --i) {
+        c = 0;
+        for (int j = n - 1; j > i; --j) {
+            c += matrix[i][j] * nghiem[j];
+        }
+        nghiem[i] = (matrix[i][n] - c)/matrix[i][i];
+        if (nghiem[i] == 0)     nghiem[i] = 0;
+    }
+}
+
+void xuat_nghiem(FILE* file, MatrixRecord backup,
+		Matrix matrix, int r, int r_mr, Vector nghiem) {
+	const int SO_NGHIEM = backup.m - 1;
+	fprintf(file, "\n\n\n%s\n\n", OUTPUT_LABEL);
+	HR(file);
+	hien_thi_hpt(backup.matrix, SO_NGHIEM, file);
+	
+	HR(file);
+	fprintf(file, "%s\n", "Ma tran duoc bien doi la:");
+	show_matrix(matrix, backup.n, backup.m, file);
+	HR(file);
+
+	if (r != r_mr)
+		fprintf(file, "%s\n", MSG_VO_NGHIEM);
+	else if (r < r_mr)
+		fprintf(file, "%s\n", MSG_VO_SO_NGHIEM);
+	else {
+		xac_dinh_nghiem(matrix, backup.n, backup.m, nghiem);
+		fprintf(file, "%s\n", MSG_CO_NGHIEM);
+		for (int i = 0; i < SO_NGHIEM; ++i)
+			XUAT_NGHIEM(file, nghiem[i], i);
+	}
+}
+
+void swap(float *a, float *b) {
+  	float tmp = *a;
+  	*a = *b;
+  	*b = tmp;
+}
+
+void swap_row(Matrix matrix, int m, int i1, int i2) {
+  	for (int j = 0; j < m; ++j) swap(&matrix[i1][j], &matrix[i2][j]);
+}
+
+void bien_doi_ma_tran(Matrix matrix, int i0, int j0, int n, int m, bool show_step, int step) {
+    if (i0 >= n || j0 >= m) {
+		if(show_step)	TB_BD_THANH_CONG;
+		set_row_for_showing_color(-1, -1);
+		if (show_step)
+			show_matrix(matrix, n, m, stdout);
+		allow_color_showing_in_matrix = false;
+		current_row = -1;
+		return;
+	}
+	allow_color_showing_in_matrix = show_step;
+    int k;
+    if (matrix[i0][j0] == 0) {
+        // Tim vi tri dau tien khac 0.
+        k = i0 + 1;
+        while (k < n && matrix[k][j0] == 0)	++k;
+        if (k >= n)
+			return bien_doi_ma_tran(matrix, i0, j0 + 1, n, m, show_step, step);
+        swap_row(matrix, m, i0, k);
+    
+        if (show_step) {
+			printf("\n\n");		HR(stdout);
+			printf("+)BUOC %d:\n", step++);
+			TB_DOI_DONG(i0, k);
+			set_row_for_showing_color(i0, k);
+            show_matrix(matrix, n, m, stdout);
+        }
+    }
+
+    float tmp;
+    for (int i = i0 + 1; i < n; ++i) {
+        if (matrix[i][j0] == 0)    continue;
+        tmp = matrix[i][j0] / matrix[i0][j0];
+        for (int j = j0; j < m; ++j)    matrix[i][j] -= tmp * matrix[i0][j];
+
+        if (show_step) {
+			printf("\n\n");	HR(stdout);
+			printf("+) BUOC %d:\n", step++);
+			TB_BIEN_DOI(i0, tmp, i);
+			set_row_for_showing_color(i0, i);
+            show_matrix(matrix, n, m, stdout);
+        }
+  	}
+  	return bien_doi_ma_tran(matrix, i0 + 1, j0 + 1, n, m, show_step, step);
+}
+
+int rank(Matrix matrix, int n, int m) {
+    int j = 0, r = 0;
+    for (int i = 0; i < n; ++i) {
+		while (j < m && matrix[i][j] == 0)  ++j;
+		if (j < m)	++r;
+	}
+    return r; 
+}
+
+void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path, bool check) {
+    Vector nghiem;
+    FILE* file = fopen(output_path, "a");
+
+    MatrixRecord backup;
+    cpy_mat(backup.matrix, &backup.n, &backup.m, matrix, n, m);
+
+	printf("Hien cac buoc bien doi?\n");
+	printf("+------------------------------+\n");
+	printf("| Chon Enter/Return de dong y. |\n");
+	printf("| Chon phim bat ki de tu choi. |\n");
+	printf("+------------------------------+\n\n");
+	printf("Chon: ");
+
+	char c = getche();
+	// Sua loi troi tren UNIX
+	bool show_step = (c == ENTER1 || c == ENTER2);
+	if (!show_step) {
+		CLEAR_STDIN;
+		xuat_nghiem(stdout, backup, calculation.matrix,
+			calculation_result.rank, calculation_result.rank_mr,
+			calculation_result.nghiem);
+		if (check)
+			xuat_nghiem(file, backup, calculation.matrix,
+			calculation_result.rank, calculation_result.rank_mr,
+			calculation_result.nghiem);
+	} else {
+		bien_doi_ma_tran(matrix, 0, 0, n, m, show_step, 1);
+		int r_mr = rank(matrix, n, m);
+		int r = rank(matrix, n, m - 1);
+		int so_nghiem = m - 1;
+
+		xuat_nghiem(stdout, backup, matrix, r, r_mr, nghiem);
+		if (check)
+			xuat_nghiem(file, backup, matrix, r, r_mr, nghiem);
+	}
+	fclose(file);
+}
+
 // ========================================== //
 //              KHOI TAO MENU                 //
 // ========================================== //
-
-typedef struct MatrixRecord {
-	Matrix matrix;
-	int n;
-	int m;
-} MatrixRecord;
-
-typedef struct {
-	string label;
-	func action;
-} MenuOption;
-
-typedef struct Menu {
-	MenuOption list[MAX];
-	int count;
-} * Menu;
 
 Menu create_menu() {
 	Menu menu = malloc(sizeof(struct Menu));
@@ -271,6 +435,14 @@ bool scan_matrix(Matrix matrix, int *n, int *m, FILE* file, FILE* log_file) {
 		SHOW_ERROR(ERR_THUA_DONG);
 
 	printf(GREEN "%s\n" RESET, "Doc ma tran thanh cong!");
+	
+	cong_don(matrix, n, m);
+	cpy_mat(calculation.matrix, &calculation.n, &calculation.m, matrix, *n, *m);
+	bien_doi_ma_tran(calculation.matrix, 0, 0, calculation.n, calculation.m, false, 1);
+	calculation_result.rank_mr = rank(calculation.matrix, calculation.n, calculation.m);
+	calculation_result.rank = rank(calculation.matrix, calculation.n, calculation.m - 1);
+	calculation_result.det = det(calculation.matrix, calculation.n);
+
     return true;
 }
 
@@ -302,7 +474,7 @@ bool load_matrix(string path, bool read_path_stdin, Matrix matrix, int *n, int *
 void show_matrix(Matrix matrix, int n, int m, FILE *file) {
   	for (int i = 0; i < n; ++i) {
     	for (int j = 0; j < m; ++j){
-			if (j == m - 1)
+			if (j == m - 1 && allow_matrix_separator)
 				fprintf(file, CHAR_FORMAT, '|');
 			if (matrix[i][j] == 0 && i < current_row && allow_color_showing_in_matrix)
 				SET_COLOR(GREEN);
@@ -349,11 +521,10 @@ void hien_thi_hpt(Matrix matrix, int so_nghiem, FILE* file) {
 }
 
 // ========================================== //
-//              CAC CUA SO                    //
+//                 CAC CUA SO                 //
 // ========================================== //
 
 void main_window() {
-	cong_don(current.matrix, &current.n, &current.m);
 	CLEAR_SCREEN;
 	SET_COLOR(YELLOW);
 	printf("                     PBL1: De tai 205\n\n");
@@ -375,148 +546,6 @@ void introduce_window() {
 	printf("              +) Vu Duc Minh.\n");
 	printf("              +) Tran Nhat Nguyen.\n");
 	enter_to_continue();
-}
-
-// ========================================== //
-//             CAC HAM TINH NGHIEM            //
-// ========================================== //
-
-void xac_dinh_nghiem(Matrix matrix, int n, int m, Vector nghiem) {
-    nghiem[n - 1] = matrix[n - 1][n]/matrix[n - 1][n - 1];
-    float c = 0;
-    for (int i = n - 2; i >= 0; --i) {
-        c = 0;
-        for (int j = n - 1; j > i; --j) {
-            c += matrix[i][j] * nghiem[j];
-        }
-        nghiem[i] = (matrix[i][n] - c)/matrix[i][i];
-        if (nghiem[i] == 0)     nghiem[i] = 0;
-    }
-}
-
-void xuat_nghiem(FILE* file, MatrixRecord backup,
-		Matrix matrix, int r, int r_mr, Vector nghiem) {
-	const int SO_NGHIEM = backup.m - 1;
-	fprintf(file, "\n\n\n%s\n\n", OUTPUT_LABEL);
-	HR(file);
-	hien_thi_hpt(backup.matrix, SO_NGHIEM, file);
-	
-	HR(file);
-	fprintf(file, "%s\n", "Ma tran duoc bien doi la:");
-	show_matrix(matrix, backup.n, backup.m, file);
-	HR(file);
-
-	if (r != r_mr)
-		fprintf(file, "%s\n", MSG_VO_NGHIEM);
-	else if (r < r_mr)
-		fprintf(file, "%s\n", MSG_VO_SO_NGHIEM);
-	else {
-		xac_dinh_nghiem(matrix, backup.n, backup.m, nghiem);
-		fprintf(file, "%s\n", MSG_CO_NGHIEM);
-		for (int i = 0; i < SO_NGHIEM; ++i)
-			XUAT_NGHIEM(file, nghiem[i], i);
-	}
-}
-
-void swap(float *a, float *b) {
-  	float tmp = *a;
-  	*a = *b;
-  	*b = tmp;
-}
-
-void swap_row(Matrix matrix, int m, int i1, int i2) {
-  	for (int j = 0; j < m; ++j) swap(&matrix[i1][j], &matrix[i2][j]);
-}
-
-void bien_doi_ma_tran(Matrix matrix, int i0, int j0, int n, int m, bool show_step, int step) {
-    if (i0 >= n || j0 >= m) {
-		if(show_step)	TB_BD_THANH_CONG;
-		pivot_row = -1;		dest_row = -1;
-		current_row = n + 1;
-		if (show_step)
-			show_matrix(matrix, n, m, stdout);
-		allow_color_showing_in_matrix = false;
-		current_row = -1;
-		return;
-	}
-	color_showing.allow = show_step;
-    int k;
-    if (matrix[i0][j0] == 0) {
-        // Tim vi tri dau tien khac 0.
-        k = i0 + 1;
-        while (k < n && matrix[k][j0] == 0)	++k;
-        if (k >= n)
-			return bien_doi_ma_tran(matrix, i0, j0 + 1, n, m, show_step, step);
-        swap_row(matrix, m, i0, k);
-    
-        if (show_step) {
-			printf("\n\n");		HR(stdout);
-			printf("+)BUOC %d:\n", step++);
-			TB_DOI_DONG(i0, k);
-			set_color_showing(i0, k,
-				(color_showing.current < color_showing.dest) ? dest_row : current_row);
-			pivot_row = i0;		dest_row = k;
-			current_row = ;
-            show_matrix(matrix, n, m, stdout);
-        }
-    }
-
-    float tmp;
-    for (int i = i0 + 1; i < n; ++i) {
-        if (matrix[i][j0] == 0)    continue;
-        tmp = matrix[i][j0] / matrix[i0][j0];
-        for (int j = j0; j < m; ++j)    matrix[i][j] -= tmp * matrix[i0][j];
-
-        if (show_step) {
-			printf("\n\n");	HR(stdout);
-			printf("+) BUOC %d:\n", step++);
-			TB_BIEN_DOI(i0, tmp, i);
-			pivot_row = i0;		dest_row = i;
-			current_row = (current_row < dest_row) ? dest_row : current_row;
-            show_matrix(matrix, n, m, stdout);
-        }
-  	}
-  	return bien_doi_ma_tran(matrix, i0 + 1, j0 + 1, n, m, show_step, step);
-}
-
-int rank(Matrix matrix, int n, int m) {
-    int j = 0, r = 0;
-    for (int i = 0; i < n; ++i) {
-		while (j < m && matrix[i][j] == 0)  ++j;
-		if (j < m)	++r;
-	}
-    return r; 
-}
-
-void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path, bool check) {
-    Vector nghiem;
-
-    MatrixRecord backup;
-    cpy_mat(backup.matrix, &backup.n, &backup.m, matrix, n, m);
-
-	printf("Hien cac buoc bien doi?\n");
-	printf("+------------------------------+\n");
-	printf("| Chon Enter/Return de dong y. |\n");
-	printf("| Chon phim bat ki de tu choi. |\n");
-	printf("+------------------------------+\n\n");
-	printf("Chon: ");
-
-	char c = getche();
-	// Sua loi troi tren UNIX
-	bool show_step = (c == ENTER1 || c == ENTER2);
-	if (!show_step)
-		CLEAR_STDIN;
-
-	bien_doi_ma_tran(matrix, 0, 0, n, m, show_step, 1);
-	int r_mr = rank(matrix, n, m);
-	int r = rank(matrix, n, m - 1);
-	int so_nghiem = m - 1;
-
-	FILE* file = fopen(output_path, "a");
-	xuat_nghiem(stdout, backup, matrix, r, r_mr, nghiem);
-	if (check)
-		xuat_nghiem(file, backup, matrix, r, r_mr, nghiem);
-	fclose(file);
 }
 
 // ========================================== //
@@ -558,6 +587,14 @@ void tim_nghiem() {
 	bien_doi_Gauss(cal.matrix, cal.n, cal.m, OUTPUT_PATH, false);
 }
 
+void tinh_dinh_thuc() {
+	printf("Ma tran:\n");
+	allow_matrix_separator = false;
+	show_matrix(current.matrix, current.n, current.n, stdout);
+	allow_matrix_separator = true;
+	printf("Dinh thuc ma tran la: %.2f", calculation_result.det);
+}
+
 void thoat() {
 	printf("%s\n", "\tHen gap lai...");
 }
@@ -574,6 +611,7 @@ int main() {
 	push("Bien doi ma tran thanh dang bac thang.        |", bien_doi, menu);
 	push("Tinh nghiem cua he phuong trinh tuyen tinh.   |", tim_nghiem, menu);
 	push("Xuat ket qua.                                 |", xuat, menu);
+	push("Tinh dinh thuc ma tran he so.					|", tinh_dinh_thuc, menu);
 	push("Thoat.                                        |", thoat, menu);
 
 	introduce_window();
