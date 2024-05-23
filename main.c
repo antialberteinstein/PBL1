@@ -77,7 +77,6 @@ int getche(void) {
 		printf(RED "Du lieu khong hop le tai dong %d, cot %d.\n" RESET, i + 1, j + 1);	\
 }
 #define ERR_FILE_KHONG_TON_TAI(file) printf(RED "File %s khong ton tai.\n" RESET, file)
-#define SHOW_ERROR(log_func) { log_func;		return false; }
 
 #define TB_BD_THANH_CONG 		printf(GREEN "Ma tran da duoc bien doi!\n" RESET);
 #define TB_DOI_DONG(i1, i2) 	printf(YELLOW "Doi dong %d va %d.\n" RESET, i1 + 1, i2 + 1)
@@ -375,6 +374,7 @@ void show_menu(Menu menu) {
 		printf("-");
 	printf("+\n\n");
 	printf("%s", "Nhap lua chon cua ban: ");
+	CLEAR_STDIN;
 	int op = (int)getchar();
 	// Sua loi troi tren UNIX.
 	if (op != ENTER1 && op != ENTER2)
@@ -402,37 +402,64 @@ void show_menu(Menu menu) {
 // Nhap ma tran tu file (hoac stdin).
 bool scan_matrix(Matrix matrix, int *n, int *m, FILE* file, FILE* log_file) {
   	char dummy;
-  	fprintf(log_file, "%s", "Nhap so dong: ");		fscanf(file, "%d%c", n, &dummy);
-  	if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DL_KHONG_HOP_LE(0, 0, true, false));
+	int success;
+  	fprintf(log_file, "%s", "Nhap so dong: ");
+	success = fscanf(file, "%d%c", n, &dummy);
+  	if (dummy != '\n' && dummy != ' ' || success == 0) {
+		ERR_DL_KHONG_HOP_LE(0, 0, true, false);
+		return false;
+	}
 
-  	fprintf(log_file, "%s", "Nhap so cot: ");		fscanf(file, "%d%c", m, &dummy);
-  	if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DL_KHONG_HOP_LE(0, 0, false, true));
+  	fprintf(log_file, "%s", "Nhap so cot: ");
+	success = fscanf(file, "%d%c", m, &dummy);
+  	if (dummy != '\n' && dummy != ' ' || success == 0) {
+		ERR_DL_KHONG_HOP_LE(0, 0, false, true);
+		return false;
+	}
 
-	if (*n  >= *m)	SHOW_ERROR(ERR_SO_DONG_LON_HON_COT(*n, *m));
+	if (*n  >= *m) {
+		ERR_SO_DONG_LON_HON_COT(*n, *m);
+		return false;
+	}
 
   	fprintf(log_file, "%s\n", "Nhap ma tran: ");
   	for (int i = 0; i < *n; ++i)
   		for (int j = 0;j < *m; ++j) {
-    		fscanf(file, "%f%c", &matrix[i][j], &dummy);
-    		if (feof(file))			dummy = '\n';
-			if (dummy != '\n' && dummy != ' ')	SHOW_ERROR(ERR_DL_KHONG_HOP_LE(i, j, false, false));
-			if (file == stdin)	continue;
+    		success = fscanf(file, "%f%c", &matrix[i][j], &dummy);
+    		if (feof(file))
+				dummy = '\n';
+			if (dummy != '\n' && dummy != ' ' || success == 0) {
+				ERR_DL_KHONG_HOP_LE(i, j, false, false);
+				return false;
+			}
+			// Neu nhap tu ban phim thi khong can kiem tra dong, cot.
+			if (file == stdin)
+				continue;
+
 			const long int POSITION = ftell(file);
 			while (dummy == ' ')	dummy = getc(file);
 			if (dummy == '\n' && j < *m - 1) {
-				if (j <= 0)
-					SHOW_ERROR(ERR_THIEU_DONG)
-				else
-					SHOW_ERROR(ERR_THIEU_COT(i));
+				if (j <= 0) {
+					ERR_THIEU_DONG;
+					return false;
+				}
+				else {
+					ERR_THIEU_COT(i);
+					return false;
+				}
 			}
-			else if (dummy != '\n' && j >= *m - 1)
-				SHOW_ERROR(ERR_THUA_COT(i))
+			else if (dummy != '\n' && j >= *m - 1) {
+				ERR_THUA_COT(i);
+				return false;
+			}
 			else
 				fseek(file, POSITION, SEEK_SET);
   		}
 	float tmp;
-	if (file != stdin && !feof(file) && fscanf(file, "%f", &tmp) == 1)
-		SHOW_ERROR(ERR_THUA_DONG);
+	if (file != stdin && !feof(file) && fscanf(file, "%f", &tmp) == 1) {
+		ERR_THUA_DONG;
+		return false;
+	}
 
 	printf(GREEN "%s\n" RESET, "Doc ma tran thanh cong!");
 	
@@ -462,7 +489,8 @@ bool load_matrix(string path, bool read_path_stdin, Matrix matrix, int *n, int *
 		file = fopen(temp, "r");
 		if (file == NULL) {
 			ERR_FILE_KHONG_TON_TAI(path);
-			SHOW_ERROR(ERR_FILE_KHONG_TON_TAI(temp));
+			ERR_FILE_KHONG_TON_TAI(temp);
+			return false;
 		}
 	}
   	bool foo = scan_matrix(matrix, n, m, file, log_file);
