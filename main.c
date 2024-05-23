@@ -58,12 +58,12 @@ int getche(void) {
 #define MAX 100
 #define CHAR_FORMAT "%7c"
 #define DATA_FORMAT "%7.2f"
-#define XUAT_NGHIEM(file, nghiem, i)	fprintf(file, "x%d = %.2g\n", i + 1, nghiem)
 #define INPUT_DIR 		"INPUT/"
 #define LOG_PATH 		"log/log.txt"
 #define INPUT_PATH 		"DATA.INP"
 #define OUTPUT_PATH 	"OUTPUT/DATA.OUT"
 
+#define XUAT_NGHIEM(file, nghiem, i)	fprintf(file, "x%d = %.2g\n", i + 1, nghiem)
 #define ERR_SO_DONG_LON_HON_COT(n, m)\
 	printf(RED "So dong(%d) lon hon hoac bang so cot (%d)." RESET, n, m)
 #define ERR_THIEU_DONG 		printf(RED "Qua it dong.\n" RESET)
@@ -127,7 +127,7 @@ typedef struct Menu {
 // ========================================== //
 Menu menu;
 FILE* log_file;
-MatrixRecord current, backup, calculation;
+MatrixRecord current, calculation;
 MatrixCalculationRecord calculation_result;
 
 void thoat();  // Ham thoat khoi chuong trinh.
@@ -136,7 +136,7 @@ void show_matrix(Matrix, int, int, FILE*);
 void hien_thi_hpt(Matrix, int, FILE*);
 
 // ========================================== //
-//              CAC CO DIEU KHIEN CT          //
+//          CAC CO HIEU DIEU KHIEN CT         //
 // ========================================== //
 
 bool allow_color_showing_in_matrix = false;  // Cho phep hien mau trong qua trinh bien doi ma tran.
