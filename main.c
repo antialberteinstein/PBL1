@@ -8,21 +8,23 @@
 #define CLEAR_SCREEN system("cls")
 #include <conio.h>
 #define CLEAR_STDIN fflush(stdin)
+#define LINUX 0
 #else
 #define CLEAR_SCREEN system("clear")
-#define CLEAR_STDIN while (getchar() != '\n')
-
-int getch() {
-	return getchar();
-}
-int getche(void) {
-	return getch();
-}
+#ifdef __APPLE__
+#define CLEAR_STDIN fflush(stdin)
+#define LINUX 0
+#else
+#define CLEAR_STDIN scanf("%*c")
+#define LINUX 1
+#endif 
+#define getch() getchar()
+#define getche() getchar()
 #endif
 
 #define ENABLE_COLOR 1
 #if ENABLE_COLOR
-// Tao mau sac.
+// Dinh nghia cac mau sac.
 #define RED   	"\x1B[31m"
 #define GREEN   "\x1B[32m"
 #define YELLOW	"\x1B[33m"
@@ -50,10 +52,11 @@ int getche(void) {
 	CLEAR_SCREEN;												\
 }
 
-#define HR(file) fprintf(file, "================================\
-===============================\n")
-#define ENTER1 10
-#define ENTER2 13
+#define HR(file) fprintf(file,\
+"===============================================================\n")
+#define ENTER1 '\n'
+#define ENTER2 '\r'
+#define SPACE  ' '
 
 #define MAX 100
 #define CHAR_FORMAT "%7c"
@@ -61,12 +64,12 @@ int getche(void) {
 #define INPUT_DIR 		"INPUT/"
 #define LOG_PATH 		"log/log.txt"
 #define INPUT_PATH 		"DATA.INP"
-#define OUTPUT_PATH 	"OUTPUT/DATA.OUT"
+#define OUTPUT_DIR	 	"OUTPUT/"
+#define OUTPUT_PATH		"OUTPUT/DATA.OUT"
 
 #define XUAT_NGHIEM(file, nghiem, i)	fprintf(file, "x%d = %.2g\n", i + 1, nghiem)
 #define ERR_SO_DONG_LON_HON_COT(n, m)\
 	printf(RED "So dong(%d) lon hon hoac bang so cot (%d)." RESET, n, m)
-#define ERR_THIEU_DONG 		printf(RED "Qua it dong.\n" RESET)
 #define ERR_THUA_DONG 		printf(RED "Qua nhieu dong.\n" RESET)
 #define ERR_THIEU_COT(i) 	printf(RED "Qua it du lieu tren dong %d.\n" RESET, i + 1)
 #define ERR_THUA_COT(i) 	printf(RED "Qua nhieu du lieu tren dong %d.\n" RESET, i + 1)
@@ -105,13 +108,6 @@ typedef struct {
 } MatrixRecord;
 
 typedef struct {
-	int rank;		// Hang cua ma tran he so.
-	int rank_mr;	// Hang cua ma tran mo rong.
-	Vector nghiem;
-	float det; 		// Dinh thuc cua ma tran.
-} MatrixCalculationRecord;
-
-typedef struct {
 	string label;
 	func action;
 } MenuOption;
@@ -126,8 +122,7 @@ typedef struct Menu {
 // ========================================== //
 Menu menu;
 FILE* log_file;
-MatrixRecord current, calculation;
-MatrixCalculationRecord calculation_result;
+MatrixRecord current;
 
 void thoat();  // Ham thoat khoi chuong trinh.
 Menu create_menu();  // Ham tao menu;
@@ -142,7 +137,7 @@ bool allow_color_showing_in_matrix = false;  // Cho phep hien mau trong qua trin
 int pivot_row = -1;  	// Chi so cua dong tru/doi dong (dong o tren).
 int dest_row = -1;   	// Chi so cua dong bi tru/doi dong (dong o duoi).
 int current_row = -1;	// Chi so cua dong hien tai dang bien doi.
-bool allow_matrix_separator = true;		// Cho phep hien dau phan cach doi voi cot he so tu do.
+char output_file_path[MAX];	// Ten cua file dau ra.
 
 // ========================================== //
 //              CAC HAM THONG DUNG            //
@@ -167,7 +162,7 @@ void destroy() {  // Giai phong cac bien toan cuc duoc cap phat.
 	free(menu);
 }
 
-bool enter_to_continue() {
+void enter_to_continue() {
 	printf("\nNhan Enter/Return de tiep tuc...");
 	getch();
 }
@@ -184,14 +179,6 @@ void cpy_mat(Matrix dest, int *n_dest, int *m_dest, Matrix src, int n, int m) {
 	for (int i = 0; i < n; ++i)		for (int j = 0; j < m; ++j)
 		dest[i][j] = src[i][j];
 	*n_dest = n;	*m_dest = m;
-}
-
-// Tinh nang them: tinh dinh thuc ma tran he so (ma tran dau vao phai duoc bien doi truoc do).
-float det(Matrix matrix, int n) {
-	float _det = 1;
-	for (int i = 0; i < n; ++i)
-		_det *= matrix[i][i];
-	return _det;
 }
 
 // ========================================== //
@@ -217,7 +204,7 @@ void xuat_nghiem(FILE* file, MatrixRecord backup,
 	fprintf(file, "\n\n\n%s\n\n", OUTPUT_LABEL);
 	HR(file);
 	hien_thi_hpt(backup.matrix, SO_NGHIEM, file);
-	
+
 	HR(file);
 	fprintf(file, "%s\n", "Ma tran duoc bien doi la:");
 	show_matrix(matrix, backup.n, backup.m, file);
@@ -225,7 +212,7 @@ void xuat_nghiem(FILE* file, MatrixRecord backup,
 
 	if (r != r_mr)
 		fprintf(file, "%s\n", MSG_VO_NGHIEM);
-	else if (r < r_mr)
+	else if (r < SO_NGHIEM)
 		fprintf(file, "%s\n", MSG_VO_SO_NGHIEM);
 	else {
 		xac_dinh_nghiem(matrix, backup.n, backup.m, nghiem);
@@ -264,7 +251,7 @@ void bien_doi_ma_tran(Matrix matrix, int i0, int j0, int n, int m, bool show_ste
         if (k >= n)
 			return bien_doi_ma_tran(matrix, i0, j0 + 1, n, m, show_step, step);
         swap_row(matrix, m, i0, k);
-    
+
         if (show_step) {
 			printf("\n\n");		HR(stdout);
 			printf("+)BUOC %d:\n", step++);
@@ -297,7 +284,7 @@ int rank(Matrix matrix, int n, int m) {
 		while (j < m && matrix[i][j] == 0)  ++j;
 		if (j < m)	++r;
 	}
-    return r; 
+    return r;
 }
 
 void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path, bool check) {
@@ -314,28 +301,18 @@ void bien_doi_Gauss(Matrix matrix, int n, int m, string output_path, bool check)
 	printf("+------------------------------+\n\n");
 	printf("Chon: ");
 
+	CLEAR_STDIN;
 	char c = getche();
-	// Sua loi troi tren UNIX
 	bool show_step = (c == ENTER1 || c == ENTER2);
-	if (!show_step) {
-		CLEAR_STDIN;
-		xuat_nghiem(stdout, backup, calculation.matrix,
-			calculation_result.rank, calculation_result.rank_mr,
-			calculation_result.nghiem);
-		if (check)
-			xuat_nghiem(file, backup, calculation.matrix,
-			calculation_result.rank, calculation_result.rank_mr,
-			calculation_result.nghiem);
-	} else {
-		bien_doi_ma_tran(matrix, 0, 0, n, m, show_step, 1);
-		int r_mr = rank(matrix, n, m);
-		int r = rank(matrix, n, m - 1);
-		int so_nghiem = m - 1;
 
-		xuat_nghiem(stdout, backup, matrix, r, r_mr, nghiem);
-		if (check)
-			xuat_nghiem(file, backup, matrix, r, r_mr, nghiem);
-	}
+	bien_doi_ma_tran(matrix, 0, 0, n, m, show_step, 1);
+	int r_mr = rank(matrix, n, m);
+	int r = rank(matrix, n, m - 1);
+	int so_nghiem = m - 1;
+
+	xuat_nghiem(stdout, backup, matrix, r, r_mr, nghiem);
+	if (check)
+		xuat_nghiem(file, backup, matrix, r, r_mr, nghiem);
 	fclose(file);
 }
 
@@ -356,29 +333,24 @@ void push(string label, func action, Menu menu) {
 	menu->list[menu->count++] = menu_option;
 }
 
-// Tra ve false neu lua chon khong hop le.
 void show_menu(Menu menu) {
 	printf("\n");
-	
+
 	int size = strlen(menu->list[0].label) + 6;
 	printf("+");
 	for (int i = 1; i < size - 1; ++i)
 		printf("-");
 	printf("+\n");
-	
+
 	for (int i = 0; i < menu->count; ++i)
 		printf("| %d/. %s\n", i + 1, menu->list[i].label);
-	
+
 	printf("+");
 	for (int i = 1; i < size - 1; ++i)
 		printf("-");
 	printf("+\n\n");
 	printf("%s", "Nhap lua chon cua ban: ");
-	CLEAR_STDIN;
 	int op = (int)getchar();
-	// Sua loi troi tren UNIX.
-	if (op != ENTER1 && op != ENTER2)
-		CLEAR_STDIN;
 	op -= '0' + 1;
 	CLEAR_SCREEN;
 	printf("\n");
@@ -387,7 +359,10 @@ void show_menu(Menu menu) {
 	}
 	else
 		menu->list[op].action();
+	CLEAR_STDIN;
 	enter_to_continue();
+    if (!LINUX)
+	    CLEAR_STDIN;
 	if (menu->list[op].action == thoat) {
 		// Neu user chon thoat thi giai phong bo nho va thoat chuong trinh.
 		destroy();
@@ -405,14 +380,14 @@ bool scan_matrix(Matrix matrix, int *n, int *m, FILE* file, FILE* log_file) {
 	int success;
   	fprintf(log_file, "%s", "Nhap so dong: ");
 	success = fscanf(file, "%d%c", n, &dummy);
-  	if (dummy != '\n' && dummy != ' ' || success == 0) {
+  	if (dummy != ENTER1 && dummy != SPACE && dummy != ENTER2 || success == 0) {
 		ERR_DL_KHONG_HOP_LE(0, 0, true, false);
 		return false;
 	}
 
   	fprintf(log_file, "%s", "Nhap so cot: ");
 	success = fscanf(file, "%d%c", m, &dummy);
-  	if (dummy != '\n' && dummy != ' ' || success == 0) {
+  	if ((dummy != ENTER1 && dummy != SPACE && dummy != ENTER2) || success == 0) {
 		ERR_DL_KHONG_HOP_LE(0, 0, false, true);
 		return false;
 	}
@@ -421,14 +396,13 @@ bool scan_matrix(Matrix matrix, int *n, int *m, FILE* file, FILE* log_file) {
 		ERR_SO_DONG_LON_HON_COT(*n, *m);
 		return false;
 	}
-
   	fprintf(log_file, "%s\n", "Nhap ma tran: ");
   	for (int i = 0; i < *n; ++i)
   		for (int j = 0;j < *m; ++j) {
     		success = fscanf(file, "%f%c", &matrix[i][j], &dummy);
     		if (feof(file))
 				dummy = '\n';
-			if (dummy != '\n' && dummy != ' ' || success == 0) {
+			if (dummy != ENTER1 && dummy != SPACE && dummy != ENTER2 || success == 0) {
 				ERR_DL_KHONG_HOP_LE(i, j, false, false);
 				return false;
 			}
@@ -437,18 +411,12 @@ bool scan_matrix(Matrix matrix, int *n, int *m, FILE* file, FILE* log_file) {
 				continue;
 
 			const long int POSITION = ftell(file);
-			while (dummy == ' ')	dummy = getc(file);
-			if (dummy == '\n' && j < *m - 1) {
-				if (j <= 0) {
-					ERR_THIEU_DONG;
-					return false;
-				}
-				else {
-					ERR_THIEU_COT(i);
-					return false;
-				}
+			while (dummy == SPACE)	dummy = getc(file);
+			if ((dummy == ENTER1 || dummy == ENTER2) && j < *m - 1) {
+				ERR_THIEU_COT(i);
+				return false;
 			}
-			else if (dummy != '\n' && j >= *m - 1) {
+			else if (dummy != ENTER1 && dummy != ENTER2 && j >= *m - 1) {
 				ERR_THUA_COT(i);
 				return false;
 			}
@@ -462,20 +430,18 @@ bool scan_matrix(Matrix matrix, int *n, int *m, FILE* file, FILE* log_file) {
 	}
 
 	printf(GREEN "%s\n" RESET, "Doc ma tran thanh cong!");
-	
-	cong_don(matrix, n, m);
-	cpy_mat(calculation.matrix, &calculation.n, &calculation.m, matrix, *n, *m);
-	bien_doi_ma_tran(calculation.matrix, 0, 0, calculation.n, calculation.m, false, 1);
-	calculation_result.rank_mr = rank(calculation.matrix, calculation.n, calculation.m);
-	calculation_result.rank = rank(calculation.matrix, calculation.n, calculation.m - 1);
-	calculation_result.det = det(calculation.matrix, calculation.n);
 
+	cong_don(matrix, n, m);
+
+	if (file == stdin)
+		strcpy(output_file_path, OUTPUT_PATH);
     return true;
 }
 
 // Nhap ma tran tu file.
 bool load_matrix(string path, bool read_path_stdin, Matrix matrix, int *n, int *m) {
 	if (read_path_stdin) {
+	    CLEAR_STDIN;
 		printf("%s", "Nhap duong dan file: ");
   		fgets(path, MAX, stdin);
   		path[strlen(path) - 1] = '\0';
@@ -494,6 +460,19 @@ bool load_matrix(string path, bool read_path_stdin, Matrix matrix, int *n, int *
 		}
 	}
   	bool foo = scan_matrix(matrix, n, m, file, log_file);
+
+	// Doi phan mo rong tu .inp sang .out
+	int size = strlen(path);
+	int pivot = size;
+	for (int i = size - 1; i >= 0; --i) {
+		if (path[i] == '.')
+			pivot = i;
+	}
+	strcpy(output_file_path, "");
+	strcat(output_file_path, OUTPUT_DIR);
+	strncat(output_file_path, path, pivot + 1);
+	strcat(output_file_path, "OUT");
+
   	fclose(file);
   	return foo;
 }
@@ -502,7 +481,7 @@ bool load_matrix(string path, bool read_path_stdin, Matrix matrix, int *n, int *
 void show_matrix(Matrix matrix, int n, int m, FILE *file) {
   	for (int i = 0; i < n; ++i) {
     	for (int j = 0; j < m; ++j){
-			if (j == m - 1 && allow_matrix_separator)
+			if (j == m - 1)
 				fprintf(file, CHAR_FORMAT, '|');
 			if (matrix[i][j] == 0 && i < current_row && allow_color_showing_in_matrix)
 				SET_COLOR(GREEN);
@@ -531,7 +510,7 @@ void hien_thi_hpt(Matrix matrix, int so_nghiem, FILE* file) {
 				float fabs_value = fabs(matrix[i][j]);
 				if (j == pivot)
 					if (fabs_value != 1)
-						fprintf(file, "%6.2g", matrix[i][j], j + 1);
+						fprintf(file, "%6.2g", matrix[i][j]);
 					else
 						fprintf(file, "%6c", ' ');
 				else {
@@ -596,8 +575,9 @@ void nhap_tu_file() {
 void xuat() {
 	MatrixRecord cal;
 	cpy_mat(cal.matrix, &cal.n, &cal.m, current.matrix, current.n, current.m);
-	bien_doi_Gauss(cal.matrix, cal.n, cal.m, OUTPUT_PATH, true);
-	printf("\nXuat thanh cong vao file DATA.OUT!\n");
+
+	bien_doi_Gauss(cal.matrix, cal.n, cal.m, output_file_path, true);
+	printf("\nXuat thanh cong vao file %s\n", output_file_path);
 }
 
 void bien_doi() {
@@ -615,14 +595,6 @@ void tim_nghiem() {
 	bien_doi_Gauss(cal.matrix, cal.n, cal.m, OUTPUT_PATH, false);
 }
 
-void tinh_dinh_thuc() {
-	printf("Ma tran:\n");
-	allow_matrix_separator = false;
-	show_matrix(current.matrix, current.n, current.n, stdout);
-	allow_matrix_separator = true;
-	printf("Dinh thuc ma tran la: %.2f", calculation_result.det);
-}
-
 void thoat() {
 	printf("%s\n", "\tHen gap lai...");
 }
@@ -633,13 +605,12 @@ int main() {
 	// Lay du lieu tu file DATA.INP
 	load_matrix(INPUT_PATH, false, current.matrix, &current.n, &current.m);
 	CLEAR_SCREEN;
-	
+
 	push("Nhap ma tran tu ban phim.                     |", nhap_tu_stdin, menu);
 	push("Nhap ma tran tu file.                         |", nhap_tu_file, menu);
 	push("Bien doi ma tran thanh dang bac thang.        |", bien_doi, menu);
-	push("Tinh nghiem cua he phuong trinh tuyen tinh.   |", tim_nghiem, menu);
+	push("Tim nghiem he phuong trinh tuyen tinh.        |", tim_nghiem, menu);
 	push("Xuat ket qua.                                 |", xuat, menu);
-	push("Tinh dinh thuc ma tran he so.					|", tinh_dinh_thuc, menu);
 	push("Thoat.                                        |", thoat, menu);
 
 	introduce_window();
